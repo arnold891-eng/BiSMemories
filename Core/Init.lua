@@ -69,14 +69,16 @@ f:SetScript("OnEvent", function(_, event, name)
   if event == "ADDON_LOADED" and name == ADDON then
     db()
     ns.Comm.Boot()
+    if ns.M and ns.M.Start then ns.M.Start() end     -- the camera, once the DB exists
   elseif event == "PLAYER_LOGOUT" then
     ns.Comm.Save()
   end
 end)
 
 SLASH_BISMEMORIES1 = "/memories"
-SlashCmdList.BISMEMORIES = function()
-  local lib = _G.LibBiSComm
-  ns.Print("hello - version %s, BiS comm %s, %d peer(s)", ns.VERSION,
-    (lib and lib:Enabled()) and T.text("good", "on") or T.text("warn", "off"), lib and lib:Count() or 0)
+SlashCmdList.BISMEMORIES = function(input)
+  -- Core/Slash.lua loads after this file and owns the real commands; if it ever fails to load,
+  -- the addon still answers rather than throwing a nil call at whoever typed it.
+  if ns.Slash then return ns.Slash(input) end
+  ns.Print("loaded, but the commands did not - version %s", ns.VERSION)
 end
