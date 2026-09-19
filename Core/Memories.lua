@@ -297,10 +297,66 @@ local EVENTS = {
   "PLAYER_ENTERING_WORLD",
   "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED",
 }
+M.EVENTS = EVENTS
+
+------------------------------------------------------------------- breadcrumbs --
+
+-- WHAT IT HEARD, AND WHAT IT DECIDED. 19 Sep 2026: an album with one picture in it, and no way to
+-- tell the two explanations apart - "nothing worth remembering happened" and "the event never
+-- arrived". The saved variables held the answer by accident (no `zones` key at all, so
+-- ZONE_CHANGED_NEW_AREA had never once fired), but reading that needs a file and a person who
+-- knows what is missing.
+--
+-- So the camera keeps a note of every event it hears and the verdict it returned. Session only,
+-- deliberately: this answers "is it working NOW", and a persisted list would just be one more
+-- thing to migrate. Same trick as BiSProbe's phase breadcrumbs, which found the forbidden action
+-- in one reload.
+M.heard = {}          -- event name -> how many times this session
+M.recent = {}         -- newest first: { event, why, at }
+M.RECENT_KEEP = 20
+
+local function breadcrumb(event, entry, why)
+  M.heard[event] = (M.heard[event] or 0) + 1
+  local verdict = entry and "TOOK ONE" or (why or "ignored")
+  -- The same thing twice running is one line with a count. Fifteen loot lines in a quiet evening
+  -- printed six identical rows and pushed everything else off the top, which is how a diagnostic
+  -- stops being read.
+  local top = M.recent[1]
+  if top and top.event == event and top.why == verdict then
+    top.n = (top.n or 1) + 1
+    top.at = (time and time()) or top.at
+    return
+  end
+  table.insert(M.recent, 1, {
+    event = event,
+    why = verdict,
+    n = 1,
+    at = (time and time()) or 0,
+  })
+  for i = #M.recent, M.RECENT_KEEP + 1, -1 do M.recent[i] = nil end
+end
+
+--- Every event the camera registered for that has NOT arrived once this session. The useful half:
+--- a name on this list is either an event this client does not send, or a thing that simply has
+--- not happened yet - and knowing which is which is a question for the person, not the addon.
+function M.Unheard()
+  local out = {}
+  for _, e in ipairs(EVENTS) do
+    if not M.heard[e] then out[#out + 1] = e end
+  end
+  return out
+end
 
 --- One event, turned into a memory or ignored. Split out from the frame so the suite can drive it
 --- with no client at all.
 function M.OnEvent(event, ...)
+  local entry, why = M.Decide(event, ...)
+  breadcrumb(event, entry, why)
+  return entry, why
+end
+
+--- The decision itself, with no note-keeping in it.
+function M.Decide(event, ...)
   if event == "PLAYER_LEVEL_UP" or event == "PLAYER_LEVEL_CHANGED" then
     local lvl = select(1, ...)
     return M.Shoot("levelup", "level " .. tostring(lvl or (UnitLevel and UnitLevel("player")) or "?"))
