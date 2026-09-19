@@ -281,4 +281,33 @@ do
   H.eq(#M.recent, M.RECENT_KEEP, "the last few, not every event since login")
 end
 
+-- THE CLIENT THAT LOSES THE ACCOUNT FILE (Forever beta, measured 19 Sep 2026). It writes
+-- BiSMemoriesDB perfectly and hands back nothing at the next login - two zone memories went that
+-- way between one save and the next. The per-character file is a different file in a different
+-- folder and it survives; BiSHealing proved that the same afternoon. So: write both, and at login
+-- take whichever came back.
+do
+  _G.BiSMemoriesDB = { log = { { at = 1, file = "WoWScrnShot_1", reason = "zone", detail = "Mulgore" } } }
+  _G.BiSMemoriesCharDB = nil
+  fire("PLAYER_LOGOUT")
+  H.ok(type(_G.BiSMemoriesCharDB) == "table" and _G.BiSMemoriesCharDB.log[1].detail == "Mulgore",
+       "logging out writes the per-character copy")
+  H.ok(not rawequal(_G.BiSMemoriesCharDB, _G.BiSMemoriesDB),
+       "and it is a SEPARATE table - an alias would be one file saved and one lost")
+
+  local kept = _G.BiSMemoriesCharDB
+  _G.BiSMemoriesDB = nil                      -- the client loses the account-wide one
+  _G.BiSMemoriesCharDB = kept
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(NS.rescued == true, "the next login notices")
+  H.eq(M.Log()[1].detail, "Mulgore", "and the memory is still there")
+
+  -- a client that keeps both is left alone
+  _G.BiSMemoriesDB = { log = { { at = 2, file = "WoWScrnShot_2", reason = "zone", detail = "Barrens" } } }
+  _G.BiSMemoriesCharDB = kept
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(NS.rescued == false and M.Log()[1].detail == "Barrens",
+       "a client that hands back both changes nothing")
+end
+
 H.report()
