@@ -233,4 +233,81 @@ lib:SetEnabled(true)
 fire("PLAYER_LOGOUT")
 H.eq(_G.BiSMemoriesDB.comm, true, "on is saved")
 
+-- WHAT IT HEARD (19 Sep 2026). Arn: "the album in the addon folder is not updating" - and the
+-- album was right, there was one memory in six hours. An album with one picture has two
+-- explanations, "nothing worth remembering happened" and "the event never arrived", and they look
+-- identical from outside. The saved variables held the answer by accident: no `zones` key at all,
+-- so ZONE_CHANGED_NEW_AREA had never once fired. This makes that readable in game instead.
+do
+  M.heard, M.recent = {}, {}
+  M.OnEvent("PLAYER_ENTERING_WORLD")
+  M.OnEvent("SOME_EVENT_FROM_2036")
+  H.eq(M.heard["PLAYER_ENTERING_WORLD"], 1, "an event it hears is counted")
+  M.OnEvent("PLAYER_ENTERING_WORLD")
+  H.eq(M.heard["PLAYER_ENTERING_WORLD"], 2, "and counted again the second time")
+  H.eq(M.recent[1].event, "PLAYER_ENTERING_WORLD", "the newest is first")
+  H.ok(M.recent[1].why ~= "TOOK ONE", "and carries the verdict, not just the name")
+
+  -- the useful half: what has NOT arrived
+  local quiet = {}
+  for _, e in ipairs(M.Unheard()) do quiet[e] = true end
+  H.ok(quiet["ZONE_CHANGED_NEW_AREA"], "an event that never arrived is named")
+  H.ok(not quiet["PLAYER_ENTERING_WORLD"], "one that did is not")
+
+  -- a real memory says so. The clock has to move: the camera holds an 8 second gap between
+  -- shots, and an earlier check in this file has just used one.
+  M.heard, M.recent = {}, {}
+  clock = clock + 100
+  _G.BiSMemoriesDB.levelup = true
+  M.OnEvent("PLAYER_LEVEL_UP", 40)
+  H.eq(M.recent[1].why, "TOOK ONE", "taking a picture is what the breadcrumb says")
+
+  -- THE SAME THING TWICE RUNNING IS ONE LINE. Fifteen loot lines in a quiet evening printed six
+  -- identical rows in game and pushed everything else off the top (Arn's screenshot, 19 Sep).
+  M.heard, M.recent = {}, {}
+  for _ = 1, 6 do M.OnEvent("CHAT_MSG_LOOT", "you loot something dull") end
+  H.eq(#M.recent, 1, "six of the same in a row is one line")
+  H.eq(M.recent[1].n, 6, "with the count on it")
+  H.eq(M.heard["CHAT_MSG_LOOT"], 6, "and all six still counted")
+  M.OnEvent("PLAYER_ENTERING_WORLD")
+  M.OnEvent("CHAT_MSG_LOOT", "you loot something dull")
+  H.eq(#M.recent, 3, "something else in between starts a new line")
+
+  -- and the list is capped, so a long session cannot grow it without end
+  M.recent = {}
+  for i = 1, M.RECENT_KEEP + 10 do
+    M.OnEvent(i % 2 == 0 and "SOME_EVENT_FROM_2036" or "ANOTHER_FROM_2036")
+  end
+  H.eq(#M.recent, M.RECENT_KEEP, "the last few, not every event since login")
+end
+
+-- THE CLIENT THAT LOSES THE ACCOUNT FILE (Forever beta, measured 19 Sep 2026). It writes
+-- BiSMemoriesDB perfectly and hands back nothing at the next login - two zone memories went that
+-- way between one save and the next. The per-character file is a different file in a different
+-- folder and it survives; BiSHealing proved that the same afternoon. So: write both, and at login
+-- take whichever came back.
+do
+  _G.BiSMemoriesDB = { log = { { at = 1, file = "WoWScrnShot_1", reason = "zone", detail = "Mulgore" } } }
+  _G.BiSMemoriesCharDB = nil
+  fire("PLAYER_LOGOUT")
+  H.ok(type(_G.BiSMemoriesCharDB) == "table" and _G.BiSMemoriesCharDB.log[1].detail == "Mulgore",
+       "logging out writes the per-character copy")
+  H.ok(not rawequal(_G.BiSMemoriesCharDB, _G.BiSMemoriesDB),
+       "and it is a SEPARATE table - an alias would be one file saved and one lost")
+
+  local kept = _G.BiSMemoriesCharDB
+  _G.BiSMemoriesDB = nil                      -- the client loses the account-wide one
+  _G.BiSMemoriesCharDB = kept
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(NS.rescued == true, "the next login notices")
+  H.eq(M.Log()[1].detail, "Mulgore", "and the memory is still there")
+
+  -- a client that keeps both is left alone
+  _G.BiSMemoriesDB = { log = { { at = 2, file = "WoWScrnShot_2", reason = "zone", detail = "Barrens" } } }
+  _G.BiSMemoriesCharDB = kept
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(NS.rescued == false and M.Log()[1].detail == "Barrens",
+       "a client that hands back both changes nothing")
+end
+
 H.report()

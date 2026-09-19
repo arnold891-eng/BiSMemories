@@ -47,6 +47,43 @@ local function db()
 end
 ns.DB = db
 
+-- THE SECOND COPY, because this client loses the first one. Measured on the Forever beta on
+-- 19 Sep 2026: it WRITES `BiSMemoriesDB` perfectly - valid Lua, every note in it - and hands back
+-- nothing at the next login. Two zone memories went that way between one save and the next, and
+-- BugGrabber's session counter sat at 1 through a dozen reloads, so it is the client. The
+-- per-character file is a different file in a different folder and it survives: BiSHealing proved
+-- it the same afternoon (`## SavedVariablesPerCharacter`, a bind still there after a reload).
+--
+-- So: write both, and at login take whichever came back. They stay SEPARATE tables - two globals
+-- pointing at one table is one file saved and one lost, which looks exactly like the bug.
+local function copy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = copy(x) end
+  return out
+end
+
+local function has(t) return type(t) == "table" and next(t) ~= nil end
+
+--- On the way out: everything, since this addon's table is small and all of it matters.
+function ns.MirrorOut()
+  BiSMemoriesCharDB = type(BiSMemoriesCharDB) == "table" and BiSMemoriesCharDB or {}
+  if type(BiSMemoriesDB) ~= "table" then return end
+  for k in pairs(BiSMemoriesCharDB) do BiSMemoriesCharDB[k] = nil end
+  for k, v in pairs(BiSMemoriesDB) do BiSMemoriesCharDB[k] = copy(v) end
+end
+
+--- At login: only when the account-wide table came back without a log and the per-character one
+--- has one. A client that keeps both never reaches this.
+function ns.MirrorIn()
+  local acct, char = BiSMemoriesDB, BiSMemoriesCharDB
+  if has(acct) and has(acct.log) then return false end
+  if not (has(char) and has(char.log)) then return false end
+  BiSMemoriesDB = type(acct) == "table" and acct or {}
+  for k, v in pairs(char) do BiSMemoriesDB[k] = copy(v) end
+  return true
+end
+
 -- the shared BiS channel: no setting of this addon may gate it; only /biscomm off does,
 -- and that choice survives a logout here
 ns.Comm = {}
@@ -67,11 +104,13 @@ f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGOUT")
 f:SetScript("OnEvent", function(_, event, name)
   if event == "ADDON_LOADED" and name == ADDON then
+    ns.rescued = ns.MirrorIn()                       -- before db(), so the log is there to find
     db()
     ns.Comm.Boot()
     if ns.M and ns.M.Start then ns.M.Start() end     -- the camera, once the DB exists
   elseif event == "PLAYER_LOGOUT" then
     ns.Comm.Save()
+    ns.MirrorOut()                                   -- the copy this client will actually give back
   end
 end)
 

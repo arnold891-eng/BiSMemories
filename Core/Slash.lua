@@ -64,6 +64,40 @@ local function status()
   ns.Print("the pictures are in %s", T.text("muted", "World of Warcraft\\<client>\\Screenshots"))
 end
 
+--- WHAT THE CAMERA HAS HEARD THIS SESSION, and what it did about it.
+---
+--- An album with one picture has two explanations - nothing worth remembering happened, or the
+--- event never arrived - and they look identical from outside. This tells them apart: counts for
+--- what has come in, the verdict on the last few, and the list of events that have not arrived at
+--- all. A name on that last list is either an event this client does not send or a thing that has
+--- not happened yet, and only the person at the keyboard knows which.
+local function heard()
+  local seen = {}
+  for _, e in ipairs(M.EVENTS or {}) do
+    local n = (M.heard or {})[e]
+    if n then seen[#seen + 1] = ("%s %d"):format(e:lower():gsub("_", " "), n) end
+  end
+  if #seen == 0 then
+    ns.Print("nothing heard yet this session - not even a login. The camera may not be running.")
+  else
+    ns.Print("heard since login: %s", T.text("good", table.concat(seen, ", ")))
+  end
+
+  local recent = M.recent or {}
+  for i = 1, math.min(#recent, 6) do
+    local r = recent[i]
+    ns.Print("  %s%s %s", T.text("muted", r.event:lower():gsub("_", " ")),
+      (r.n or 1) > 1 and T.text("muted", (" x%d"):format(r.n)) or "",
+      r.why == "TOOK ONE" and T.text("good", "took one") or T.text("muted", r.why))
+  end
+
+  local quiet = M.Unheard and M.Unheard() or {}
+  if #quiet > 0 then
+    ns.Print("not heard at all: %s", T.text("warn", table.concat(quiet, ", "):lower():gsub("_", " ")))
+    ns.Print("%s", T.text("muted", "either this client does not send it, or it has not happened yet"))
+  end
+end
+
 local function set(key, on)
   local d = db()
   for _, t in ipairs(M.TRIGGERS) do
@@ -126,8 +160,11 @@ function ns.Slash(input)
   elseif cmd == "status" then
     status()
 
+  elseif cmd == "heard" then
+    heard()
+
   else
     ns.Print("%s", T.text("muted",
-      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · status"))
+      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · status · heard"))
   end
 end

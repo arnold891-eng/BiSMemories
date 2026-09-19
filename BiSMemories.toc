@@ -4,6 +4,7 @@
 ## Author: Arn
 ## Version: 0.1.0
 ## SavedVariables: BiSMemoriesDB
+## SavedVariablesPerCharacter: BiSMemoriesCharDB
 ## OptionalDeps: BiSTheme
 ## DefaultState: enabled
 ## X-Curse-Project-ID: 1701857
