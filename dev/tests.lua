@@ -310,4 +310,52 @@ do
        "a client that hands back both changes nothing")
 end
 
+-- THE JOURNAL. Arn asked for the album in the addon, reading the Screenshots folder. The reading
+-- half is impossible - no addon can list a directory, and a .jpg outside Interface\ cannot be
+-- drawn - so this is the words half, and these tests hold it to that: what happened, newest
+-- first, and honest when there is nothing.
+do
+  local J = NS.J
+  H.ok(J ~= nil, "there is a journal")
+
+  local log = M.Log()
+  for i = #log, 1, -1 do log[i] = nil end
+
+  -- EMPTY IS A STATE, not a bug. On this client the log starts empty at every login, so the
+  -- window people see most often is this one, and it has to say why rather than look broken.
+  J.Show()
+  H.ok(J.frame:IsShown(), "it opens")
+  H.ok(strip(J.frame.foot._text):find("nothing yet"), "and an empty log says so in words")
+  H.eq(J.frame.rows[1]._text, "", "with no stale row left behind")
+
+  -- twenty memories, newest first
+  for i = 1, 20 do
+    table.insert(log, 1, { at = 1000 + i, reason = "zone", detail = "place " .. i,
+                           zone = "Mulgore", with = {}, file = "WoWScrnShot_" .. i })
+  end
+  J.Refresh()
+  H.ok(strip(J.frame.rows[1]._text):find("place 20"), "the newest is at the top")
+  H.ok(strip(J.frame.rows[2]._text):find("place 19"), "and the one before it is under it")
+  H.ok(strip(J.frame.foot._text):find("1%-12 of 20"), "the footer counts the page")
+
+  -- the wheel walks it, and stops at the ends rather than running off
+  H.eq(J.Scroll(3), 3, "the wheel moves down the list")
+  H.ok(strip(J.frame.rows[1]._text):find("place 17"), "and the page follows")
+  H.eq(J.Scroll(-99), 0, "it will not go above the newest")
+  H.eq(J.Scroll(99), 8, "nor past the oldest - 20 entries, 12 rows")
+
+  -- A MEMORY LANDING WHILE IT IS OPEN pulls it forward. Through M.Shoot, the path the game
+  -- actually takes - calling J.Touch() by hand here proved only that Touch works, and passed
+  -- happily with the hook in Memories.lua deleted. The wiring is the thing being claimed.
+  J.Scroll(-99)
+  local d = NS.DB()
+  d.levelup, d.gap = true, 0        -- M.Shoot refuses if the trigger is off or the gap is unmet
+  H.ok(M.Shoot("levelup", "level 19") ~= nil, "the memory is actually taken")
+  H.ok(strip(J.frame.rows[1]._text):find("level 19"),
+       "a new memory appears without reopening", strip(J.frame.rows[1]._text))
+
+  J.Hide()
+  H.ok(not J.frame:IsShown(), "and it closes")
+end
+
 H.report()

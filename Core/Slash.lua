@@ -10,6 +10,9 @@
       /memories sound           the click on or off
       /memories clear           forget the notes (never touches the pictures)
       /memories status          what is on, and where the pictures live
+      /memories journal         the album in game: what happened, newest first. No pictures -
+                                an addon cannot list a folder, and cannot draw a .jpg. See
+                                Core/Journal.lua for why that is not a Forever thing.
 
   Reading it back matters as much as taking it: the note names the file the client wrote, so a
   picture in Screenshots\ can be matched to the night it came from.
@@ -163,8 +166,11 @@ function ns.Slash(input)
   elseif cmd == "heard" then
     heard()
 
+  elseif cmd == "journal" or cmd == "album" or cmd == "book" then
+    if ns.J then ns.J.Toggle() else ns.Print("the journal is not loaded") end
+
   else
     ns.Print("%s", T.text("muted",
-      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · status · heard"))
+      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · status · heard · journal"))
   end
 end
