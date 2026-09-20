@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BiS Memories Album</title>
+<!--
+  BiS Memories :: the album, for your own screenshots.
+
+  Double-click this file. It opens in your browser. Nothing is installed, nothing is uploaded,
+  and it works with no internet connection at all - every picture stays on your own machine and
+  is read straight off your disk by the browser.
+
+  WHY IT ASKS YOU TO PICK THE FOLDER. A web page cannot go looking through your hard drive; that
+  would be a security hole the size of a house. So you point it at your Screenshots folder once,
+  and the browser hands the page that folder and nothing else.
+
+  THE NOTES ARE OPTIONAL. The addon writes down what each picture WAS - the zone, your level, why
+  it was taken - into its saved variables file. Hand that file over too and every picture gets its
+  story. Without it you still get the album, just without the captions.
+-->
+<style>
+  :root {
+    --ink: #efeae3; --muted: #9a9187; --accent: #e8b96b; --line: #2b2723;
+    --bg: #14110f; --card: #1c1917;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  header { padding: 28px 20px 18px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: .3px; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--muted); max-width: 70ch; margin: 0 0 16px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .btn {
+    display: inline-block; padding: 9px 14px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--ink); cursor: pointer; font-size: 14px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn input { display: none; }
+  .count { color: var(--muted); font-size: 13px; }
+  main { padding: 18px 20px 60px; }
+  .day { margin: 26px 0 10px; color: var(--accent); font-size: 15px; letter-spacing: .4px; }
+  .day span { color: var(--muted); font-size: 13px; margin-left: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+           overflow: hidden; cursor: zoom-in; }
+  figure img { width: 100%; height: 150px; object-fit: cover; display: block; background: #000; }
+  figcaption { padding: 8px 10px 10px; font-size: 13px; }
+  .reason { color: var(--accent); text-transform: lowercase; }
+  .detail { color: var(--ink); }
+  .where { color: var(--muted); display: block; margin-top: 2px; font-size: 12px; }
+  .time { color: var(--muted); font-size: 12px; }
+  .empty { color: var(--muted); padding: 40px 0; max-width: 70ch; }
+  .empty code { color: var(--ink); background: var(--card); padding: 2px 5px; border-radius: 4px; }
+  /* the lightbox */
+  #box { position: fixed; inset: 0; background: rgba(0,0,0,.94); display: none;
+         align-items: center; justify-content: center; flex-direction: column; z-index: 50; }
+  #box.on { display: flex; }
+  #box img { max-width: 94vw; max-height: 82vh; object-fit: contain; }
+  #box .bar { color: var(--muted); padding: 12px 16px; text-align: center; font-size: 14px; }
+  #box .bar b { color: var(--ink); font-weight: 600; }
+  #box .nav { position: absolute; top: 0; bottom: 0; width: 22%; cursor: pointer; }
+  #box .nav.prev { left: 0; } #box .nav.next { right: 0; }
+  #box .x { position: absolute; top: 14px; right: 18px; color: var(--muted); cursor: pointer;
+            font-size: 26px; line-height: 1; }
+  #box .x:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BiS<span>&gt;</span> Memories &mdash; your album</h1>
+  <p class="lede">
+    Point this at your <b>Screenshots</b> folder and it becomes an album you can click through.
+    Everything happens inside your browser: nothing is uploaded, nothing is installed, and it
+    works offline. Add the addon's saved file too and each picture gets its story.
+  </p>
+  <div class="controls">
+    <label class="btn">Choose your Screenshots folder
+      <input type="file" id="pics" webkitdirectory directory multiple>
+    </label>
+    <label class="btn">Add the addon's notes (optional)
+      <input type="file" id="notes" accept=".lua,.txt">
+    </label>
+    <span class="count" id="count"></span>
+  </div>
+</header>
+
+<main>
+  <div class="empty" id="empty">
+    <p><b>Nothing loaded yet.</b> Click <i>Choose your Screenshots folder</i> above.</p>
+    <p>It is usually here:</p>
+    <p><code>World of Warcraft\_classic_beta_\Screenshots</code><br>
+       <code>World of Warcraft\_classic_era_\Screenshots</code></p>
+    <p>For the captions, the addon's notes file is here &mdash; pick your own account and character
+       folder:</p>
+    <p><code>World of Warcraft\&lt;version&gt;\WTF\Account\&lt;ACCOUNT&gt;\SavedVariables\BiSMemories.lua</code></p>
+    <p style="color:var(--muted)">Your browser may ask permission to read the folder. That is the
+       browser protecting you, not this page asking for anything &mdash; say yes and the pictures
+       are read from disk and shown. They never leave your machine.</p>
+  </div>
+  <div id="album"></div>
+</main>
+
+<div id="box">
+  <span class="x" id="x">&times;</span>
+  <span class="nav prev" id="prev"></span>
+  <span class="nav next" id="next"></span>
+  <img id="big" alt="">
+  <div class="bar" id="bar"></div>
+</div>
+
+<script>
+"use strict";
+
+var shots = [];      // { file, name, url, at, note }
+var notes = {};      // filename (no extension) -> note from the addon
+var at = -1;         // which one the lightbox is showing
+
+// WoWScrnShot_091926_165152.jpg -> 19 Sep 2026, 16:51:52. The client names them MMDDYY_HHMMSS,
+// which is the only date we get: a file's "last modified" is when it was copied, not when it was
+// taken, and a folder that has been moved between drives has all of them wrong.
+function stamp(name) {
+  var m = /WoWScrnShot_(\d{2})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(name);
+  if (!m) return null;
+  var yr = 2000 + parseInt(m[3], 10);
+  return new Date(yr, parseInt(m[1], 10) - 1, parseInt(m[2], 10),
+                  parseInt(m[4], 10), parseInt(m[5], 10), parseInt(m[6], 10));
+}
+
+function dayKey(d) { return d ? d.toDateString() : "Undated"; }
+function clock(d) {
+  if (!d) return "";
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+// The addon's saved file is Lua, not JSON. It is read with patterns rather than parsed properly,
+// on purpose: a half-understood file should cost you captions, never the album. Anything this
+// does not recognise is skipped and the pictures still show.
+// NOT BY SPLITTING ON "}," - that was the first attempt and it was wrong in a way that still
+// produced an album, which is the worst kind of wrong. Every entry contains ["with"] = { }, so
+// splitting there cuts each memory in half: the filename and zone land in one piece, the level,
+// detail and reason in the next, and the album comes out with half-empty captions. Instead each
+// ["file"] is found and the braces around it are walked properly.
+function entryAround(text, idx) {
+  var depth = 0, i, start;
+  for (i = idx; i >= 0; i--) {
+    if (text.charAt(i) === "}") depth++;
+    else if (text.charAt(i) === "{") { if (depth === 0) break; depth--; }
+  }
+  if (i < 0) return null;
+  start = i; depth = 0;
+  for (i = start; i < text.length; i++) {
+    if (text.charAt(i) === "{") depth++;
+    else if (text.charAt(i) === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
+
+function readNotes(text) {
+  var out = {}, get, re, m, block;
+  get = function (b, key) {
+    var mm = new RegExp('\\["' + key + '"\\]\\s*=\\s*"([^"]*)"').exec(b);
+    if (mm) return mm[1];
+    mm = new RegExp('\\["' + key + '"\\]\\s*=\\s*(-?\\d+)').exec(b);
+    return mm ? mm[1] : null;
+  };
+  re = /\["file"\]\s*=\s*"([^"]*)"/g;
+  while ((m = re.exec(text)) !== null) {
+    block = entryAround(text, m.index);
+    if (!block) continue;
+    out[m[1].replace(/\.[a-z]+$/i, "")] = {
+      zone: get(block, "zone"), detail: get(block, "detail"),
+      reason: get(block, "reason"), level: get(block, "level")
+    };
+  }
+  return out;
+}
+
+function render() {
+  var album = document.getElementById("album");
+  var empty = document.getElementById("empty");
+  var count = document.getElementById("count");
+  album.innerHTML = "";
+  if (!shots.length) { empty.style.display = ""; count.textContent = ""; return; }
+  empty.style.display = "none";
+
+  var withNote = 0, i;
+  for (i = 0; i < shots.length; i++) { if (shots[i].note) withNote++; }
+  count.textContent = shots.length + " picture" + (shots.length === 1 ? "" : "s") +
+    (withNote ? ", " + withNote + " with a note" : "");
+
+  var groups = [], byDay = {};
+  for (i = 0; i < shots.length; i++) {
+    var k = dayKey(shots[i].at);
+    if (!byDay[k]) { byDay[k] = []; groups.push(k); }
+    byDay[k].push(shots[i]);
+  }
+
+  groups.forEach(function (k) {
+    var h = document.createElement("div");
+    h.className = "day";
+    h.innerHTML = k + "<span>" + byDay[k].length + "</span>";
+    album.appendChild(h);
+
+    var grid = document.createElement("div");
+    grid.className = "grid";
+    byDay[k].forEach(function (s) {
+      var fig = document.createElement("figure");
+      fig.onclick = function () { open(shots.indexOf(s)); };
+
+      var img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = s.url;
+      img.alt = s.name;
+      fig.appendChild(img);
+
+      var cap = document.createElement("figcaption");
+      if (s.note) {
+        cap.innerHTML = '<span class="reason">' + esc(s.note.reason || "") + '</span> ' +
+          '<span class="detail">' + esc(s.note.detail || "") + '</span>' +
+          '<span class="where">' + esc(s.note.zone || "") +
+          (s.note.level ? " &middot; level " + esc(s.note.level) : "") + "</span>";
+      } else {
+        cap.innerHTML = '<span class="time">' + (clock(s.at) || esc(s.name)) + "</span>";
+      }
+      fig.appendChild(cap);
+      grid.appendChild(fig);
+    });
+    album.appendChild(grid);
+  });
+}
+
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function open(i) {
+  if (i < 0 || i >= shots.length) return;
+  at = i;
+  var s = shots[i];
+  document.getElementById("big").src = s.url;
+  document.getElementById("bar").innerHTML = s.note
+    ? "<b>" + esc(s.note.detail || s.note.reason || "") + "</b> &middot; " +
+      esc(s.note.zone || "") + (s.note.level ? " &middot; level " + esc(s.note.level) : "") +
+      " &middot; " + esc(s.name)
+    : "<b>" + esc(s.name) + "</b>";
+  document.getElementById("box").classList.add("on");
+}
+function close() { document.getElementById("box").classList.remove("on"); at = -1; }
+function step(by) { if (at >= 0) open(Math.min(shots.length - 1, Math.max(0, at + by))); }
+
+document.getElementById("x").onclick = close;
+document.getElementById("prev").onclick = function () { step(-1); };
+document.getElementById("next").onclick = function () { step(1); };
+document.getElementById("box").onclick = function (e) { if (e.target.id === "box") close(); };
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") close();
+  else if (e.key === "ArrowLeft") step(-1);
+  else if (e.key === "ArrowRight") step(1);
+});
+
+document.getElementById("pics").addEventListener("change", function (e) {
+  var files = Array.prototype.slice.call(e.target.files || []);
+  shots = [];
+  files.forEach(function (f) {
+    if (!/\.(jpe?g|png|tga)$/i.test(f.name)) return;
+    var base = f.name.replace(/\.[a-z]+$/i, "");
+    shots.push({ file: f, name: f.name, url: URL.createObjectURL(f),
+                 at: stamp(f.name), note: notes[base] || null });
+  });
+  // newest first, and undated ones last rather than dumped at the top
+  shots.sort(function (a, b) {
+    if (!a.at && !b.at) return a.name < b.name ? 1 : -1;
+    if (!a.at) return 1;
+    if (!b.at) return -1;
+    return b.at - a.at;
+  });
+  render();
+});
+
+document.getElementById("notes").addEventListener("change", function (e) {
+  var f = (e.target.files || [])[0];
+  if (!f) return;
+  var r = new FileReader();
+  r.onload = function () {
+    notes = readNotes(String(r.result || ""));
+    shots.forEach(function (s) { s.note = notes[s.name.replace(/\.[a-z]+$/i, "")] || null; });
+    render();
+  };
+  r.readAsText(f);
+});
+</script>
+</body>
+</html>

@@ -358,4 +358,20 @@ do
   H.ok(not J.frame:IsShown(), "and it closes")
 end
 
+-- THE ALBUM PAGE SHIPS. It is not Lua and the suite cannot run it, but it CAN check the two
+-- things that would make it useless without anyone noticing: that the files are still there to
+-- be zipped, and that the page still carries the folder picker it is built around. A shipped
+-- file that quietly stops shipping looks exactly like a file that was never there.
+do
+  local page = bytes(HERE .. "/../Album/BiSMemories-Album.html")
+  H.ok(page ~= nil, "the album page is in the addon folder, to be shipped")
+  H.ok(page and page:find("webkitdirectory", 1, true) ~= nil,
+       "and it still has the folder picker it is built around")
+  H.ok(page and page:find("entryAround", 1, true) ~= nil,
+       "and reads the notes by walking braces, not by splitting on a comma")
+  H.ok(page and page:find("http", 1, true) == nil or not page:find("src=\"http", 1, true),
+       "nothing is fetched from the internet: it must work offline")
+  H.ok(bytes(HERE .. "/../Album/README.txt") ~= nil, "with the instructions beside it")
+end
+
 H.report()
