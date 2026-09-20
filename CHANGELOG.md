@@ -1,5 +1,25 @@
 # BiSMemories
 
+## 0.2.0
+
+- **The album, in game.** `/memories journal` opens what happened: newest first, the wheel to walk
+  back through it, Escape to close. A memory taken while it is open appears in front of you.
+
+  **No pictures, and that will not change.** An addon cannot list a folder - the only reason this
+  one knows a screenshot exists is that it took it and wrote the name down from the clock - and a
+  `.jpg` outside `Interface\` cannot be drawn on a frame at all. That is on every client, not just
+  this one, and it is why the HTML album exists: a browser can open those files and the game
+  cannot. The journal keeps each filename beside its entry so a picture on disk still matches the
+  night it came from.
+
+- **`/memories heard`** - what the camera was told, and what never arrived. An album with one
+  picture has two explanations that look the same from outside: nothing happened, or the event
+  never came. This prints the counts since login, the verdict on the last few, and every event it
+  registered for that has not fired at all. It answered that question in one reload.
+
+- On the Forever beta the log starts empty at every login, because that client hands back no saved
+  variables to any addon. The journal says so in words rather than looking broken.
+
 ## 0.1.0
 
 Takes a screenshot when something worth remembering happens - and writes down what it was, so a
