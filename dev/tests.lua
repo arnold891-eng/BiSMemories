@@ -374,4 +374,49 @@ do
   H.ok(bytes(HERE .. "/../Album/README.txt") ~= nil, "with the instructions beside it")
 end
 
+-- A MEMORY TAKEN WHILE THE CLIENT IS HIDING THINGS. Boss kills and deaths fire IN COMBAT, which
+-- is exactly when this client turns answers into secret values - and a secret is not a nil, it is
+-- a value that ERRORS the moment anything reads it. Unguarded, the camera would throw at the one
+-- moment worth a picture, and anything that got through would be written into saved variables.
+--
+-- The mock cannot be a real secret (Lua has no hook for truthiness), but it can error on the
+-- reads that matter - concat, compare, tostring - which is what the client does and what the
+-- unguarded code would have done.
+do
+  local secretMeta = {
+    __concat = function() error("secret value: refused", 0) end,
+    __eq = function() error("secret value: refused", 0) end,
+    __lt = function() error("secret value: refused", 0) end,
+    __tostring = function() error("secret value: refused", 0) end,
+  }
+  local function secret() return setmetatable({}, secretMeta) end
+  local realLevel, realName, realSecret = _G.UnitLevel, _G.UnitName, _G.issecretvalue
+  local realNum, realExists = _G.GetNumGroupMembers, _G.UnitExists
+  _G.UnitLevel = function() return secret() end
+  _G.issecretvalue = function(v) return getmetatable(v) == secretMeta end
+  -- A PARTY OF THREE, so the roster half is actually walked: one name the client will say, two it
+  -- will not. With no group at all this test looked green while the names guard was deleted.
+  _G.GetNumGroupMembers = function() return 3 end
+  _G.UnitExists = function() return true end
+  _G.UnitName = function(u) return u == "party1" and "Kumlance" or secret() end
+
+  local d = NS.DB()
+  d.boss, d.gap = true, 0
+  local took, err = pcall(M.Shoot, "boss", "a first kill")
+  H.ok(took, "a memory taken while the client is hiding things does not throw", tostring(err))
+
+  local e = M.Log()[1]
+  H.ok(e ~= nil and e.level == 0, "a level it cannot read is written down as 0, not as a secret")
+  H.ok(e ~= nil and type(e.with) == "table", "and the roster is still a list")
+  for _, who in ipairs((e or {}).with or {}) do
+    H.ok(type(who) == "string", "every name kept is a real string, never a secret", tostring(who))
+  end
+
+  H.ok(#((M.Log()[1] or {}).with or {}) == 1,
+       "the one name it would say is kept, the two it hid are dropped",
+       #((M.Log()[1] or {}).with or {}))
+  _G.UnitLevel, _G.UnitName, _G.issecretvalue = realLevel, realName, realSecret
+  _G.GetNumGroupMembers, _G.UnitExists = realNum, realExists
+end
+
 H.report()

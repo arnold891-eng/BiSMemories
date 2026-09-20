@@ -88,16 +88,41 @@ local function where()
   return zone
 end
 
---- Everyone who was there. A memory of a first kill is worth more with the names on it, and this
---- is plain roster data: nothing the lockdown hides.
+--- A value you may actually USE, or nil when the client is hiding it.
+---
+--- SOME ANSWERS ON THIS CLIENT ARE SECRET: they can be handed to a FontString and the client will
+--- paint them, but READING one - arithmetic, comparison, `..`, tostring, even asking whether it is
+--- truthy - is refused, and the refusal is an error, not a nil. `ShouldUnitIdentityBeSecret` and
+--- `ShouldUnitStatsBeSecret` are both in this client's API list, so a NAME and a LEVEL are both
+--- things it can decide to hide.
+---
+--- It matters more here than anywhere else in this addon, because memories are taken WHILE
+--- FIGHTING - a boss dying, dying yourself - which is exactly when the client hides the most. An
+--- unguarded read throws inside the camera at the one moment worth a picture, and a secret that
+--- got through would be written into the log and on into saved variables.
+---
+--- NOT YET MEASURED on this client: whether names and levels actually do go secret. The guard
+--- costs nothing when they do not, and ForeverAuras 0.1.114 checks unit names exactly this way.
+local function plain(v)
+  if v == nil then return nil end
+  if issecretvalue then
+    local asked, yes = pcall(issecretvalue, v)
+    if asked and yes then return nil end
+  end
+  return v
+end
+
+--- Everyone who was there. A memory of a first kill is worth more with the names on it - and the
+--- roster is NOT simply plain on this client, whatever the old comment here claimed.
 local function party()
   local names = {}
-  local n = (GetNumGroupMembers and GetNumGroupMembers()) or 0
+  local n = plain(GetNumGroupMembers and GetNumGroupMembers()) or 0
   local raid = IsInRaid and IsInRaid()
   for i = 1, n do
     local unit = (raid and "raid" or "party") .. i
     if UnitExists and UnitExists(unit) and UnitName then
-      names[#names + 1] = (UnitName(unit))
+      local who = plain(UnitName(unit))
+      if who then names[#names + 1] = who end
     end
   end
   return names
@@ -119,7 +144,7 @@ function M.Shoot(reason, detail)
     reason = reason,
     detail = detail,
     zone = where(),
-    level = (UnitLevel and UnitLevel("player")) or 0,
+    level = plain(UnitLevel and UnitLevel("player")) or 0,
     at = (time and time()) or 0,
     with = party(),
   }
