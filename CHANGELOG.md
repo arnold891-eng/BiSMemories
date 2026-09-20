@@ -1,5 +1,21 @@
 # BiSMemories
 
+## 0.3.0
+
+- **Make your own album, from your own screenshots.** The addon folder now carries
+  `Album\BiSMemories-Album.html`. Double-click it, point it at your Screenshots folder, and it
+  becomes an album you click through - full size on click, arrow keys to move, grouped by day.
+
+  Hand it the addon's saved file as well and every picture it took carries its story: the zone,
+  your level, and why it was worth a picture.
+
+  **Nothing is uploaded and nothing is installed.** There is no server and no internet connection
+  involved - your browser reads the files off your own disk. Unplug the network and it works the
+  same. It asks you to pick the folder because a web page is not allowed to go wandering through
+  your drive, which is a good thing.
+
+  `Album\README.txt` has the same in longer words, including where the folders usually live.
+
 ## 0.2.0
 
 - **The album, in game.** `/memories journal` opens what happened: newest first, the wheel to walk
