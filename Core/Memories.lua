@@ -138,6 +138,8 @@ function M.Shoot(reason, detail)
   local log = M.Log()
   table.insert(log, 1, entry)
   for i = #log, (d.keep or 250) + 1, -1 do log[i] = nil end
+  -- an open journal follows along rather than going stale behind you
+  if ns.J and ns.J.Touch then ns.J.Touch() end
   return entry
 end
 

@@ -15,4 +15,5 @@ Libs\LibBiSComm-1.0\LibBiSComm-1.0.lua
 
 Core\Init.lua
 Core\Memories.lua
+Core\Journal.lua
 Core\Slash.lua
