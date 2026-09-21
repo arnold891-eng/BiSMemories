@@ -1,5 +1,16 @@
 # BiSMemories
 
+## 0.3.1
+
+- **Loot pictures are yours again.** `CHAT_MSG_LOOT` carries the whole raid's loot, and the only
+  test was the item's quality - so in a 25-man every epic anybody won was a photograph, every few
+  seconds, all night. Now it takes **your** loot at the quality you set, plus **anyone's
+  legendary**, because an orange dropping is the room's memory and not just the winner's.
+
+  Whose line it is comes from the client's own strings, so it works the same in any language.
+
+  If it was driving you mad before this update: `/memories off loot` stops it at once, no reload.
+
 ## 0.3.0
 
 - **Make your own album, from your own screenshots.** The addon folder now carries
