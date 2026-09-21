@@ -360,15 +360,20 @@ do
                            zone = "Mulgore", with = {}, file = "WoWScrnShot_" .. i })
   end
   J.Refresh()
-  H.ok(strip(J.frame.rows[1]._text):find("place 20"), "the newest is at the top")
-  H.ok(strip(J.frame.rows[2]._text):find("place 19"), "and the one before it is under it")
-  H.ok(strip(J.frame.foot._text):find("1%-12 of 20"), "the footer counts the page")
+  -- ROW 1 IS THE NIGHT'S HEADING NOW, and the memories hang under it. These twenty were written
+  -- a second apart, so they are all one "night" - which is the rule doing exactly what it says.
+  H.ok(strip(J.frame.rows[1]._text):find("Mulgore"), "the night's heading is at the top",
+       strip(J.frame.rows[1]._text))
+  H.ok(strip(J.frame.rows[2]._text):find("place 20"), "the newest memory is under it")
+  H.ok(strip(J.frame.rows[3]._text):find("place 19"), "and the one before it under that")
+  H.ok(strip(J.frame.foot._text):find("of 20"), "the footer counts the memories, not the lines")
 
   -- the wheel walks it, and stops at the ends rather than running off
   H.eq(J.Scroll(3), 3, "the wheel moves down the list")
-  H.ok(strip(J.frame.rows[1]._text):find("place 17"), "and the page follows")
+  H.ok(strip(J.frame.rows[1]._text):find("place 18"), "and the page follows",
+       strip(J.frame.rows[1]._text))
   H.eq(J.Scroll(-99), 0, "it will not go above the newest")
-  H.eq(J.Scroll(99), 8, "nor past the oldest - 20 entries, 12 rows")
+  H.eq(J.Scroll(99), 9, "nor past the oldest - 20 memories plus a heading, 12 rows")
 
   -- A MEMORY LANDING WHILE IT IS OPEN pulls it forward. Through M.Shoot, the path the game
   -- actually takes - calling J.Touch() by hand here proved only that Touch works, and passed
@@ -377,8 +382,9 @@ do
   local d = NS.DB()
   d.levelup, d.gap = true, 0        -- M.Shoot refuses if the trigger is off or the gap is unmet
   H.ok(M.Shoot("levelup", "level 19") ~= nil, "the memory is actually taken")
-  H.ok(strip(J.frame.rows[1]._text):find("level 19"),
-       "a new memory appears without reopening", strip(J.frame.rows[1]._text))
+  H.ok(strip(J.frame.rows[2]._text):find("level 19"),
+       "a new memory appears without reopening, under the heading",
+       strip(J.frame.rows[2]._text))
 
   J.Hide()
   H.ok(not J.frame:IsShown(), "and it closes")
@@ -445,6 +451,48 @@ do
        #((M.Log()[1] or {}).with or {}))
   _G.UnitLevel, _G.UnitName, _G.issecretvalue = realLevel, realName, realSecret
   _G.GetNumGroupMembers, _G.UnitExists = realNum, realExists
+end
+
+-- A RAID NIGHT IS ONE SECTION, EVEN WHEN IT ENDS AFTER MIDNIGHT. Arn: "a section could be a raid
+-- night, all the raid bossed killed in one night in their own section of that raid night". The
+-- calendar is the wrong unit - start at eight, kill the last boss at twenty to one, and grouping
+-- by day orphans the last two bosses into tomorrow while the night they belonged to sits above.
+do
+  local J = NS.J
+  local log = M.Log()
+  for i = #log, 1, -1 do log[i] = nil end
+
+  -- newest first, as the addon keeps them. 20:04 Sat -> 00:41 Sun, then a quiet afternoon before.
+  -- BUILT, NOT GUESSED. The first version used a round epoch number and the "does this really
+  -- cross midnight" check caught it: it was some hour in the afternoon, so the test would have
+  -- proved the grouping works on a night that never crossed anything.
+  local sat8pm = os.time({ year = 2026, month = 9, day = 19, hour = 20, min = 4, sec = 0 })
+  local night = {
+    { at = sat8pm + 4*3600 + 37*60, reason = "boss",    detail = "Prince",  zone = "Karazhan" },
+    { at = sat8pm + 3*3600,         reason = "loot",    detail = "a sword", zone = "Karazhan" },
+    { at = sat8pm + 1*3600,         reason = "boss",    detail = "Moroes",  zone = "Karazhan" },
+    { at = sat8pm,                  reason = "levelup", detail = "level 70", zone = "Karazhan" },
+    { at = sat8pm - 8*3600,         reason = "candid",  detail = "a walk",  zone = "The Barrens" },
+  }
+  for _, e in ipairs(night) do log[#log + 1] = e end
+
+  local lines = J.Lines()
+  H.eq(#lines, 7, "five memories become five lines and two headings")
+  H.ok(lines[1].head ~= nil, "a heading comes first")
+  H.eq(lines[1].head.bosses, 2, "the night knows how many bosses died in it")
+  H.ok(strip(J.Head(lines[1].head)):find("Karazhan"),
+       "and is named for where they died", strip(J.Head(lines[1].head)))
+  for i = 2, 5 do H.ok(lines[i].entry ~= nil, "the night's memories hang under it") end
+  H.ok(lines[6].head ~= nil, "the afternoon eight hours earlier is its own section")
+  H.ok(strip(J.Head(lines[6].head)):find("Barrens"), "named for where it happened")
+
+  -- and the proof it is not the calendar doing this: the night spans midnight and stays one
+  local crossed = os.date("%d", night[1].at) ~= os.date("%d", night[4].at)
+  H.ok(crossed, "this night really does cross midnight (or the fixture is wrong)")
+  H.ok(lines[1].head.bosses == 2 and lines[6].head ~= nil,
+       "one night, one section, both sides of midnight in it")
+
+  for i = #log, 1, -1 do log[i] = nil end
 end
 
 H.report()

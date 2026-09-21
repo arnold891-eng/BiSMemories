@@ -1,5 +1,15 @@
 # BiSMemories
 
+## 0.5.0
+
+- **Loot reads like loot.** The addon writes down the item link the client handed it, and in the
+  game that draws as a purple item name - in a browser it was printing the machinery,
+  `|cffa335ee|Hitem:32577...`. The album shows the item's name now, in its own quality colour.
+
+- **The in-game journal is grouped by raid night too.** `/memories journal` now has a heading for
+  each night - *Karazhan, Sat 19 Sep, 20:04-00:41, 2 bosses* - with that night's memories under
+  it, the same rule the album page uses. One log, one idea of what a night is.
+
 ## 0.4.0
 
 - **The album is grouped by raid night, not by calendar day.** A night that starts at eight and
