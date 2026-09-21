@@ -91,8 +91,10 @@ end
 --- A value you may actually USE, or nil when the client is hiding it.
 ---
 --- SOME ANSWERS ON THIS CLIENT ARE SECRET: they can be handed to a FontString and the client will
---- paint them, but READING one - arithmetic, comparison, `..`, tostring, even asking whether it is
---- truthy - is refused, and the refusal is an error, not a nil. `ShouldUnitIdentityBeSecret` and
+--- paint them, but READING one - arithmetic, comparison, `..`, tostring - is refused, and the
+--- refusal is an error, not a nil. (This used to add "even asking whether it is truthy". Never
+--- measured, and corrected 21 Sep 2026: EllesmereUI tests secret text for truth on purpose. This
+--- guard never makes that test, so nothing below changes.) `ShouldUnitIdentityBeSecret` and
 --- `ShouldUnitStatsBeSecret` are both in this client's API list, so a NAME and a LEVEL are both
 --- things it can decide to hide.
 ---
