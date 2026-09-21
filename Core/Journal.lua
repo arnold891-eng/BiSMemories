@@ -28,6 +28,7 @@ local J = {}
 ns.J = J
 
 local ROWS = 12                 -- how many fit; the wheel moves a page of them
+local GAP = 3 * 60 * 60         -- seconds of quiet that end a raid night (same rule as the album)
 local W, H = 440, 300
 
 local function when(at)
@@ -45,6 +46,46 @@ function J.Line(e)
     T.text("accent", e.reason or "?"),
     tostring(e.detail or ""),
     T.text("muted", "  " .. tostring(e.zone or "?") .. who))
+end
+
+--- The log as LINES: a heading for each raid night, then that night's memories under it.
+---
+--- Same rule as the album page, deliberately - one log, one idea of what a night is. A night is a
+--- run with no three-hour gap in it, so one that starts at eight and ends at twenty to one is one
+--- night and not two days. It is titled by the zone its BOSSES died in, falling back to wherever
+--- most of it happened, and dated by when it STARTED.
+function J.Lines()
+  local log = M.Log()
+  local out, cur = {}, nil
+  for i = 1, #log do
+    local e = log[i]
+    local at = tonumber(e.at) or 0
+    -- the log is newest first, so each entry is OLDER than the one before it
+    if not cur or (cur.oldest - at) > GAP then
+      cur = { newest = at, oldest = at, bosses = 0, bossZone = nil, anyZone = e.zone }
+      out[#out + 1] = { head = cur }
+    end
+    cur.oldest = at
+    cur.anyZone = cur.anyZone or e.zone
+    if e.reason == "boss" then
+      cur.bosses = cur.bosses + 1
+      cur.bossZone = cur.bossZone or e.zone
+    end
+    out[#out + 1] = { entry = e }
+  end
+  return out
+end
+
+--- A night's heading, as one line of text.
+function J.Head(h)
+  if type(h) ~= "table" then return "" end
+  local where = h.bossZone or h.anyZone or "somewhere"
+  local day = (date and h.oldest > 0) and date("%a %d %b", h.oldest) or "?"
+  local from = (date and h.oldest > 0) and date("%H:%M", h.oldest) or "?"
+  local to = (date and h.newest > 0) and date("%H:%M", h.newest) or "?"
+  local span = (from == to) and from or (from .. "-" .. to)
+  local kills = h.bosses > 0 and ("  " .. h.bosses .. (h.bosses == 1 and " boss" or " bosses")) or ""
+  return T.text("accent", where) .. T.text("muted", ("  %s  %s%s"):format(day, span, kills))
 end
 
 local function build()
@@ -106,8 +147,7 @@ end
 
 --- Move by `by` rows, clamped. Returns where it landed, so a test can ask.
 function J.Scroll(by)
-  local log = M.Log()
-  local most = math.max(0, #log - ROWS)
+  local most = math.max(0, #J.Lines() - ROWS)
   J.offset = math.max(0, math.min(most, (J.offset or 0) + (by or 0)))
   if J.frame and J.frame:IsShown() then J.Refresh() end
   return J.offset
@@ -115,25 +155,27 @@ end
 
 function J.Refresh()
   local f = build()
-  local log = M.Log()
-  local n = #log
-  J.offset = math.max(0, math.min(math.max(0, n - ROWS), J.offset or 0))
+  local lines = J.Lines()
+  local n = #M.Log()
+  J.offset = math.max(0, math.min(math.max(0, #lines - ROWS), J.offset or 0))
 
   f.count:SetText(T.text("muted", n == 0 and "" or (n .. " kept")))
 
   for i = 1, ROWS do
     -- NEWEST FIRST: the log is kept newest-first already (Memories.lua inserts at 1), so the
     -- offset counts down the page rather than up from the end
-    local e = log[i + J.offset]
-    f.rows[i]:SetText(e and J.Line(e) or "")
+    local l = lines[i + J.offset]
+    if not l then f.rows[i]:SetText("")
+    elseif l.head then f.rows[i]:SetText(J.Head(l.head))
+    else f.rows[i]:SetText(J.Line(l.entry)) end
   end
 
   if n == 0 then
     f.foot:SetText(T.text("muted",
       "nothing yet today. It fires on levelling, bosses, rare loot, achievements and dying."))
-  elseif n > ROWS then
-    f.foot:SetText(T.text("muted", ("%d-%d of %d - wheel to scroll")
-      :format(J.offset + 1, math.min(n, J.offset + ROWS), n)))
+  elseif #lines > ROWS then
+    f.foot:SetText(T.text("muted", ("%d of %d kept - wheel to scroll")
+      :format(math.min(n, J.offset + ROWS), n)))
   else
     f.foot:SetText(T.text("muted", "the pictures are in your Screenshots folder"))
   end

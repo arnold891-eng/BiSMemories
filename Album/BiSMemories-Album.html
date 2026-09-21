@@ -267,7 +267,7 @@ function render() {
       var cap = document.createElement("figcaption");
       if (s.note) {
         cap.innerHTML = '<span class="reason">' + esc(s.note.reason || "") + '</span> ' +
-          '<span class="detail">' + esc(s.note.detail || "") + '</span>' +
+          '<span class="detail">' + pretty(s.note.detail || "") + '</span>' +
           '<span class="where">' + esc(s.note.zone || "") +
           (s.note.level ? " &middot; level " + esc(s.note.level) : "") + "</span>";
       } else {
@@ -278,6 +278,25 @@ function render() {
     });
     album.appendChild(grid);
   });
+}
+
+// AN ITEM LINK IS NOT TEXT. The addon writes down exactly what the client handed it, which for
+// loot is the whole link - |cffa335ee|Hitem:32577:::::70:::::|h[Living Earth Bindings]|h|r - and
+// in the GAME that renders as a purple item name, because the client parses it. A browser has no
+// idea, so the album printed the machinery: Arn, 20 Sep, "some of the loot come out wierd".
+//
+// So: pull the name out of the brackets and the colour out of the |cff, and show what the game
+// would have shown. Anything that is not a link is left exactly as it was.
+function pretty(text) {
+  var t = String(text === null || text === undefined ? "" : text);
+  var link = /\|c[fF][fF]([0-9a-fA-F]{6})\|H(item:[^|]*)\|h\[([^\]]*)\]\|h\|r/.exec(t);
+  if (link) {
+    return '<span style="color:#' + link[1] + '">' + esc(link[3]) + "</span>";
+  }
+  var plain = /\|H(item:[^|]*)\|h\[([^\]]*)\]\|h/.exec(t);
+  if (plain) return esc(plain[2]);
+  // any other colour codes the client may have left in are stripped rather than printed
+  return esc(t.replace(/\|c[0-9a-fA-F]{8}/g, "").replace(/\|r/g, ""));
 }
 
 function esc(s) {
@@ -291,7 +310,7 @@ function open(i) {
   var s = shots[i];
   document.getElementById("big").src = s.url;
   document.getElementById("bar").innerHTML = s.note
-    ? "<b>" + esc(s.note.detail || s.note.reason || "") + "</b> &middot; " +
+    ? "<b>" + pretty(s.note.detail || s.note.reason || "") + "</b> &middot; " +
       esc(s.note.zone || "") + (s.note.level ? " &middot; level " + esc(s.note.level) : "") +
       " &middot; " + esc(s.name)
     : "<b>" + esc(s.name) + "</b>";
