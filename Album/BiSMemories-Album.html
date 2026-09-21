@@ -131,7 +131,58 @@ function stamp(name) {
                   parseInt(m[4], 10), parseInt(m[5], 10), parseInt(m[6], 10));
 }
 
-function dayKey(d) { return d ? d.toDateString() : "Undated"; }
+// A RAID NIGHT IS A SESSION, NOT A DAY. Grouping by the calendar cuts a night in half: start at
+// eight, kill the last boss at twenty to one, and the two bosses after midnight get orphaned into
+// "tomorrow" while the night they belonged to sits above them. So a section is a run of memories
+// with no long gap in it - Arn, 20 Sep: "a section could be a raid night, all the raid bossed
+// killed in one night in their own section of that raid night".
+//
+// THREE HOURS is the gap. It is long enough that a break for dinner in the middle of a raid does
+// not split the night in two, and short enough that this afternoon and this evening are not one
+// section. Everything inside the window belongs to it - the level-up, the legendary, the candid
+// shot of everyone standing around - because that is what makes it a night rather than a kill list.
+var GAP = 3 * 60 * 60 * 1000;
+
+// Pure, and separate from the drawing, so it can be asked questions without a folder of pictures.
+function sessions(list) {
+  var out = [], cur = null, i, s;
+  for (i = 0; i < list.length; i++) {
+    s = list[i];
+    if (!s.at) continue;                         // undated: its own heap, below
+    if (cur && (cur.last - s.at) <= GAP) {       // list is newest first, so this one is older
+      cur.shots.push(s);
+      cur.last = s.at;
+    } else {
+      cur = { shots: [s], first: s.at, last: s.at };
+      out.push(cur);
+    }
+  }
+  var undated = list.filter(function (x) { return !x.at; });
+  if (undated.length) out.push({ shots: undated, first: null, last: null });
+  return out;
+}
+
+// What to call a night. The zone its bosses died in, if any died; otherwise wherever most of it
+// happened. The DATE is the date it STARTED - a night that ends at 1am is still Saturday's.
+function sessionTitle(sess) {
+  if (!sess.first) return { title: "Undated", sub: "" };
+  var bosses = sess.shots.filter(function (s) { return s.note && s.note.reason === "boss"; });
+  var pick = bosses.length ? bosses : sess.shots;
+  var tally = {}, best = null, i, z;
+  for (i = 0; i < pick.length; i++) {
+    z = (pick[i].note && pick[i].note.zone) || "";
+    if (!z) continue;
+    tally[z] = (tally[z] || 0) + 1;
+    if (!best || tally[z] > tally[best]) best = z;
+  }
+  var start = sess.last, end = sess.first;       // last is the OLDEST in the run
+  var day = start.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  // one picture is a moment, not a span: "14:00", never "14:00-14:00"
+  var span = (clock(start) === clock(end)) ? clock(start) : (clock(start) + "-" + clock(end));
+  var bits = [day, span];
+  if (bosses.length) bits.push(bosses.length + (bosses.length === 1 ? " boss" : " bosses"));
+  return { title: best || day, sub: best ? bits.join("  ·  ") : span };
+}
 function clock(d) {
   if (!d) return "";
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -193,22 +244,17 @@ function render() {
   count.textContent = shots.length + " picture" + (shots.length === 1 ? "" : "s") +
     (withNote ? ", " + withNote + " with a note" : "");
 
-  var groups = [], byDay = {};
-  for (i = 0; i < shots.length; i++) {
-    var k = dayKey(shots[i].at);
-    if (!byDay[k]) { byDay[k] = []; groups.push(k); }
-    byDay[k].push(shots[i]);
-  }
-
-  groups.forEach(function (k) {
+  sessions(shots).forEach(function (sess) {
+    var name = sessionTitle(sess);
     var h = document.createElement("div");
     h.className = "day";
-    h.innerHTML = k + "<span>" + byDay[k].length + "</span>";
+    h.innerHTML = esc(name.title) + "<span>" + esc(name.sub) +
+                  (name.sub ? "  &middot;  " : "") + sess.shots.length + "</span>";
     album.appendChild(h);
 
     var grid = document.createElement("div");
     grid.className = "grid";
-    byDay[k].forEach(function (s) {
+    sess.shots.forEach(function (s) {
       var fig = document.createElement("figure");
       fig.onclick = function () { open(shots.indexOf(s)); };
 
