@@ -124,6 +124,32 @@ end
 H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY4|h[Thunderfury]|h") ~= nil, "epic loot is")
 H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY2|h[Bent Stick]|h") == nil, "a green is not")
 H.ok(M.LootWorthy("Kumlust says hello") == nil, "a line with no item is not")
+
+-- SOMEBODY ELSE'S PURPLE IS NOT A MEMORY. CHAT_MSG_LOOT carries the whole raid's, and Arn watched
+-- it fire on every epic in a 25-man: "otherwise it takes for all purple loot". Mine at the
+-- threshold, anyone's legendary - an orange dropping is the room's memory, not just the winner's.
+--
+-- The client's own strings decide whose it is, so this works in a language nobody here reads.
+_G.LOOT_ITEM_SELF = "You receive loot: %s."
+_G.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+_G.LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
+H.ok(M.LootIsMine("You receive loot: |Hitem:QUALITY4|h[Thunderfury]|h."), "my own loot line is mine")
+H.ok(not M.LootIsMine("Kingkroo receives loot: |Hitem:QUALITY4|h[Thunderfury]|h."), "somebody else's is not")
+H.ok(M.LootIsMine("You receive item: |Hitem:QUALITY4|h[Thing]|h."), "and a pushed item is mine too")
+H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY4|h[Thunderfury]|h.") ~= nil, "my epic is worth one")
+H.ok(M.LootWorthy("Kingkroo receives loot: |Hitem:QUALITY4|h[Thunderfury]|h.") == nil,
+     "a raider's epic is not - that was one picture every few seconds")
+H.ok(M.LootWorthy("Kingkroo receives loot: |Hitem:QUALITY5|h[Sulfuras]|h.") ~= nil,
+     "but a legendary is, whoever won it")
+
+-- a translated client: the word for "you" is not "You", and the pattern still has to hold
+_G.LOOT_ITEM_SELF = "Du erhaeltst Beute: %s."
+_G.LOOT_ITEM_SELF_MULTIPLE, _G.LOOT_ITEM_PUSHED_SELF = nil, nil
+H.ok(M.LootIsMine("Du erhaeltst Beute: |Hitem:QUALITY4|h[Ding]|h."),
+     "whose loot it is comes from the client's strings, not from the word 'You'")
+_G.LOOT_ITEM_SELF = "You receive loot: %s."
+_G.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+_G.LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
 _G.BiSMemoriesDB.lootQuality = 2
 H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY2|h[Bent Stick]|h") ~= nil, "unless you lower the bar")
 _G.BiSMemoriesDB.lootQuality = 4

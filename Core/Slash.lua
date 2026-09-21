@@ -5,7 +5,8 @@
       /memories all             everything kept
       /memories now [note]      take one right now, with an optional note
       /memories on|off <thing>  levelup, boss, loot, achievement, death, duel
-      /memories loot <2-5>      the quality worth a picture: 4 is epic, 3 is rare
+      /memories loot <2-5>      the quality worth a picture: 4 is epic, 3 is rare.
+                                YOUR loot only - plus anyone's legendary, whoever won it
       /memories gap <seconds>   the least time between two shots
       /memories sound           the click on or off
       /memories clear           forget the notes (never touches the pictures)
