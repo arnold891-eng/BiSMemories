@@ -179,8 +179,56 @@ end
 
 ---------------------------------------------------------------------- triggers --
 
---- Is this loot line worth a picture? The item's own quality decides, so the threshold is one
---- setting rather than a list of item names nobody will maintain.
+--- IS THIS LOOT LINE MINE? CHAT_MSG_LOOT carries everyone's, and in a 25-man raid everyone's
+--- epics is a picture every few seconds - Arn, mid-raid: "otherwise it takes for all purple loot".
+---
+--- Told apart by the client's own strings rather than by looking for "You", because those strings
+--- are translated and the word for "you" is not: LOOT_ITEM_SELF is "You receive loot: %s." in
+--- English and something else everywhere else. The %s and %d are turned back into captures, the
+--- rest is escaped. If the client offers none of them - a harness, an odd build - the English
+--- forms are the floor, so this degrades to "probably mine" rather than to "nothing is ever mine".
+local NAMES = { "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE", "LOOT_ITEM_PUSHED_SELF",
+                "LOOT_ITEM_PUSHED_SELF_MULTIPLE", "LOOT_ITEM_CREATED_SELF" }
+local SELF, SELFKEY
+local function selfPatterns()
+  -- KEYED ON THE STRINGS THEMSELVES, not just "have we done this once". A plain cache is right
+  -- for a client, where these never change - and wrong for anything that swaps them underneath,
+  -- which is exactly what a test for a translated client does. Cheap, and it means the cache can
+  -- never be the reason an answer is stale.
+  local key = ""
+  for _, n in ipairs(NAMES) do key = key .. "|" .. tostring(_G[n]) end
+  if SELF and SELFKEY == key then return SELF end
+  SELFKEY = key
+  SELF = {}
+  for _, name in ipairs(NAMES) do
+    local fmt = _G[name]
+    if type(fmt) == "string" then
+      -- ONLY THE PART BEFORE THE ITEM. Matching the whole format meant matching its trailing full
+      -- stop too, and a loot line without one stopped being mine - which is brittle for no gain:
+      -- what makes a line mine is the words in front of the item ("You receive loot: "), and
+      -- those are exactly what the translation changes.
+      local prefix = fmt:match("^(.-)%%[sd]")
+      if prefix and prefix ~= "" then
+        SELF[#SELF + 1] = "^" .. prefix:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+      end
+    end
+  end
+  if #SELF == 0 then
+    SELF = { "^You receive loot:", "^You receive item:", "^You create:" }
+  end
+  return SELF
+end
+
+function M.LootIsMine(msg)
+  if type(msg) ~= "string" then return false end
+  for _, p in ipairs(selfPatterns()) do
+    if msg:match(p) then return true end
+  end
+  return false
+end
+
+--- Is this loot line worth a picture? MINE, at the quality you set - plus ANYONE'S legendary,
+--- because an orange dropping is the room's memory and not just the winner's.
 function M.LootWorthy(msg)
   if type(msg) ~= "string" then return nil end
   local link = msg:match("|c%x+|Hitem:.-|h%[.-%]|h|r") or msg:match("|Hitem:.-|h%[.-%]|h")
@@ -189,6 +237,8 @@ function M.LootWorthy(msg)
   if not getInfo then return nil end
   local ok, _, _, quality = pcall(getInfo, link)
   if not ok or type(quality) ~= "number" then return nil end
+  if quality >= 5 then return link, quality end      -- a legendary is everyone's news
+  if not M.LootIsMine(msg) then return nil end
   if quality < (db().lootQuality or 4) then return nil end
   return link, quality
 end
