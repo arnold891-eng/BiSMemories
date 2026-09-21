@@ -1,5 +1,16 @@
 # BiSMemories
 
+## 0.4.0
+
+- **The album is grouped by raid night, not by calendar day.** A night that starts at eight and
+  ends at twenty to one used to be cut in half, with the last two bosses orphaned into "tomorrow"
+  while the night they belonged to sat above them. Now a section is a run of memories with no
+  three-hour gap in it, so the whole night is one section - *Karazhan, Sat 20 Sep, 20:04-00:41,
+  8 bosses* - and everything that happened inside it is there: the kills, the drops, the ding, the
+  daft photo of everyone standing on the roof.
+
+  A break for dinner keeps the night together. This afternoon and this evening stay apart.
+
 ## 0.3.1
 
 - **Loot pictures are yours again.** `CHAT_MSG_LOOT` carries the whole raid's loot, and the only

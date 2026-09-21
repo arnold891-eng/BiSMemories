@@ -395,6 +395,8 @@ do
        "and it still has the folder picker it is built around")
   H.ok(page and page:find("entryAround", 1, true) ~= nil,
        "and reads the notes by walking braces, not by splitting on a comma")
+  H.ok(page and page:find("function sessions(", 1, true) ~= nil,
+       "and groups by raid night, not by calendar day - a night that ends after midnight is one night")
   H.ok(page and page:find("http", 1, true) == nil or not page:find("src=\"http", 1, true),
        "nothing is fetched from the internet: it must work offline")
   H.ok(bytes(HERE .. "/../Album/README.txt") ~= nil, "with the instructions beside it")
