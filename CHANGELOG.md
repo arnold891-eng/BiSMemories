@@ -1,5 +1,13 @@
 # BiSMemories
 
+## 0.5.1
+
+- **Fixed: an error in dungeons from messages the game hides.** On WoW Forever the game can hide
+  the text of a chat or system message from addons - seen in a dungeon, where a system line broke
+  the duel check. Anything hidden is now left out before it is read. A hidden duel line is simply
+  not a duel, and a boss kill with a hidden name still gets its picture, as "a boss". A hidden
+  zone name is written down as "?".
+
 ## 0.5.0
 
 - **Loot reads like loot.** The addon writes down the item link the client handed it, and in the
