@@ -453,6 +453,57 @@ do
   _G.GetNumGroupMembers, _G.UnitExists = realNum, realExists
 end
 
+-- AN EVENT WHOSE TEXT IS SECRET. Arn, 21 Sep, in a dungeon: "attempt to index local 'msg' (a
+-- secret string value)" in DuelWon, from a CHAT_MSG_SYSTEM the client had hidden. Every parser
+-- reads its argument, so a secret one is taken out before any of them sees it.
+do
+  local boom = function() error("attempt to index a secret string value", 0) end
+  local secretMeta = { __index = boom, __concat = boom, __eq = boom, __lt = boom, __le = boom,
+                       __len = boom, __tostring = boom }
+  local function secret() return setmetatable({}, secretMeta) end
+  local realSecret, realZone = _G.issecretvalue, _G.GetRealZoneText
+  _G.issecretvalue = function(v) return getmetatable(v) == secretMeta end
+  local d = NS.DB()
+  d.boss, d.duel, d.loot, d.exalted, d.gap = true, true, true, true, 0
+  M.hidden = {}
+  local before = #M.Log()
+  -- THE MOCK CANNOT BE A STRING: in the client a secret string still answers type() == "string",
+  -- so the parsers' own `type(msg) ~= "string"` checks let it through and it blew up on the read.
+  -- A table-shaped fake is turned away by those checks and would pass without the guard - so the
+  -- guard is tested where it acts: no parser is ever handed anything secret.
+  local realDecide, leaked = M.Decide, 0
+  M.Decide = function(event, ...)
+    for i = 1, select("#", ...) do
+      if getmetatable((select(i, ...))) == secretMeta then leaked = leaked + 1 end
+    end
+    return realDecide(event, ...)
+  end
+
+  local ok1 = pcall(M.OnEvent, "CHAT_MSG_SYSTEM", secret())
+  H.ok(ok1, "a secret system line does not throw - the DuelWon crash")
+  local ok2 = pcall(M.OnEvent, "CHAT_MSG_LOOT", secret())
+  local ok3 = pcall(M.OnEvent, "CHAT_MSG_COMBAT_FACTION_CHANGE", secret())
+  H.ok(ok2 and ok3, "nor a secret loot or faction line")
+  H.ok(M.hidden.CHAT_MSG_SYSTEM == 1 and M.hidden.CHAT_MSG_LOOT == 1, "and each is counted")
+  H.ok((M.recent[1] or {}).why == "hidden by the client", "the breadcrumb says why nothing was taken",
+       tostring((M.recent[1] or {}).why))
+
+  -- a boss kill with a hidden name is still a memory - only the name is lost
+  local ok4, entry = pcall(M.OnEvent, "BOSS_KILL", 1, secret())
+  H.ok(ok4 and entry and entry.detail == "a boss", "a boss kill with a hidden name still gets its picture",
+       tostring(entry and entry.detail))
+  H.ok(#M.Log() == before + 1, "exactly one memory from all of that")
+  H.ok(leaked == 0, "and no parser was ever handed a secret", leaked)
+  M.Decide = realDecide
+
+  -- and a hidden zone name is written as "?", not read
+  _G.GetRealZoneText = function() return secret() end
+  local ok5, e5 = pcall(M.Shoot, "boss", "zone test")
+  H.ok(ok5 and e5 and type(e5.zone) == "string" and e5.zone:sub(1, 1) == "?",
+       "a hidden zone is written as ?", tostring(e5 and e5.zone))
+  _G.issecretvalue, _G.GetRealZoneText = realSecret, realZone
+end
+
 -- A RAID NIGHT IS ONE SECTION, EVEN WHEN IT ENDS AFTER MIDNIGHT. Arn: "a section could be a raid
 -- night, all the raid bossed killed in one night in their own section of that raid night". The
 -- calendar is the wrong unit - start at eight, kill the last boss at twenty to one, and grouping
