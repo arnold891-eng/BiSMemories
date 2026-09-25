@@ -81,9 +81,11 @@ local function shotStem()
   return "WoWScrnShot_" .. stamp
 end
 
+local plain   -- below; a zone name is compared here, and a hidden one must not be
+
 local function where()
-  local zone = (GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()) or "?"
-  local sub = (GetSubZoneText and GetSubZoneText()) or ""
+  local zone = plain((GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText())) or "?"
+  local sub = plain(GetSubZoneText and GetSubZoneText()) or ""
   if sub ~= "" and sub ~= zone then return zone .. " - " .. sub end
   return zone
 end
@@ -91,8 +93,10 @@ end
 --- A value you may actually USE, or nil when the client is hiding it.
 ---
 --- SOME ANSWERS ON THIS CLIENT ARE SECRET: they can be handed to a FontString and the client will
---- paint them, but READING one - arithmetic, comparison, `..`, tostring, even asking whether it is
---- truthy - is refused, and the refusal is an error, not a nil. `ShouldUnitIdentityBeSecret` and
+--- paint them, but READING one - arithmetic, comparison, `..`, tostring - is refused, and the
+--- refusal is an error, not a nil. (This used to add "even asking whether it is truthy". Never
+--- measured, and corrected 21 Sep 2026: EllesmereUI tests secret text for truth on purpose. This
+--- guard never makes that test, so nothing below changes.) `ShouldUnitIdentityBeSecret` and
 --- `ShouldUnitStatsBeSecret` are both in this client's API list, so a NAME and a LEVEL are both
 --- things it can decide to hide.
 ---
@@ -103,7 +107,7 @@ end
 ---
 --- NOT YET MEASURED on this client: whether names and levels actually do go secret. The guard
 --- costs nothing when they do not, and ForeverAuras 0.1.114 checks unit names exactly this way.
-local function plain(v)
+function plain(v)
   if v == nil then return nil end
   if issecretvalue then
     local asked, yes = pcall(issecretvalue, v)
@@ -426,8 +430,28 @@ end
 
 --- One event, turned into a memory or ignored. Split out from the frame so the suite can drive it
 --- with no client at all.
+---
+--- WHAT THE CLIENT HIDES IS TAKEN OUT FIRST. On Forever an event's text can arrive SECRET - a
+--- system line, a loot line, a boss's name - and reading one is an error, not a nil. Arn, 21 Sep,
+--- in a dungeon: "attempt to index local 'msg' (a secret string value)" in DuelWon, from a
+--- CHAT_MSG_SYSTEM that happened to be secret. Every parser below reads its argument, so each
+--- secret argument becomes nil before any of them sees it: the duel check then answers "not a
+--- duel", and a boss kill with a hidden name still gets its picture, as "a boss". Only what could
+--- not be read is lost. M.hidden counts it, per event, for /memories heard.
+M.hidden = {}
+local function hiddenValue(v)
+  if v == nil or not issecretvalue then return false end
+  local ok, yes = pcall(issecretvalue, v)
+  return (ok and yes) and true or false
+end
 function M.OnEvent(event, ...)
-  local entry, why = M.Decide(event, ...)
+  local n, args, scrubbed = select("#", ...), { ... }, false
+  for i = 1, n do
+    if hiddenValue(args[i]) then args[i] = nil; scrubbed = true end
+  end
+  if scrubbed then M.hidden[event] = (M.hidden[event] or 0) + 1 end
+  local entry, why = M.Decide(event, unpack(args, 1, n))
+  if scrubbed and not entry then why = "hidden by the client" end
   breadcrumb(event, entry, why)
   return entry, why
 end
