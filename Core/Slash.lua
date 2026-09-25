@@ -161,6 +161,24 @@ function ns.Slash(input)
     M.Log()
     ns.Print("forgot %d note(s). The pictures are still where they were.", n)
 
+  elseif cmd == "zones" or cmd == "places" then
+    -- WHAT IT REMEMBERS OF WHERE YOU HAVE BEEN. "It photographs places I know" and "it has
+    -- forgotten every place I know" look identical from the outside, and the second is what was
+    -- really happening on 24 Sep - one zone remembered after a week of play. This says which.
+    local kept = type(db().zones) == "table" and db().zones or {}
+    local names, n = {}, 0            -- `names`, not `list`: `list` up there is the log printer
+    for name in pairs(kept) do
+      n = n + 1
+      if n <= 12 then names[#names + 1] = tostring(name) end
+    end
+    table.sort(names)
+    ns.Print("%d place(s) remembered", n)
+    if n > 0 then
+      ns.Print("  %s", T.text("muted", table.concat(names, ", ") .. (n > #names and ", ..." or "")))
+    end
+    ns.Print("  %s", T.text("muted",
+      ("%d new-place picture(s) this session"):format(M.zoneShots or 0)))
+
   elseif cmd == "status" then
     status()
 
@@ -172,6 +190,6 @@ function ns.Slash(input)
 
   else
     ns.Print("%s", T.text("muted",
-      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · status · heard · journal"))
+      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · zones · status · heard · journal"))
   end
 end

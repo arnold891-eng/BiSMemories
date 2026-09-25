@@ -77,6 +77,18 @@ end
 --- has one. A client that keeps both never reaches this.
 function ns.MirrorIn()
   local acct, char = BiSMemoriesDB, BiSMemoriesCharDB
+  -- WHERE YOU HAVE BEEN COMES HOME EITHER WAY. The rescue below is gated on the LOG - fair enough,
+  -- the log is what a player would miss - and `zones` only ever came back as a passenger on it. A
+  -- character who has not taken a photograph yet has no log to ride on, so their map was forgotten
+  -- at every login and every place they knew was "new" again (Arn, 24 Sep: "too many screenshots
+  -- of places that i have already been at"). The two lists are merged on their own, first, and
+  -- merged rather than replaced: neither copy is more right about a place than the other.
+  if type(char) == "table" and type(char.zones) == "table" then
+    BiSMemoriesDB = type(acct) == "table" and acct or {}
+    acct = BiSMemoriesDB
+    acct.zones = type(acct.zones) == "table" and acct.zones or {}
+    for name in pairs(char.zones) do acct.zones[name] = true end
+  end
   if has(acct) and has(acct.log) then return false end
   if not (has(char) and has(char.log)) then return false end
   BiSMemoriesDB = type(acct) == "table" and acct or {}

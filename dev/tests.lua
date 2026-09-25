@@ -197,9 +197,55 @@ H.ok(table.concat(said, " "):find("nothing yet", 1, true), "and says so plainly"
 
 H.section("zones, duels and exalted")
 _G.BiSMemoriesDB.zones = nil
+M.zoneShots = 0
 H.ok(M.NewZone("Elwynn Forest") == nil, "the first zone it ever sees is remembered, not shot")
 H.ok(M.NewZone("Westfall") == "Westfall", "the next new one is a memory")
 H.ok(M.NewZone("Westfall") == nil, "and only the first time")
+
+-- WHERE YOU HAVE BEEN IS LEARNED EVERYWHERE, not only where the camera fires. Arn, 24 Sep:
+-- "memories is taking too many screenshots of places that i have already been at". His saved file,
+-- after days of play, held ONE zone - Thunder Bluff - beside a log of pictures all taken on
+-- Zephras Isle. The list was only ever written at the moment ZONE_CHANGED_NEW_AREA fired, and on
+-- this client that event stays quiet for whole evenings; everywhere he walked in between remained
+-- unknown, ready to be "new" the next time it did speak up.
+do
+  local realGet = _G.GetRealZoneText
+  _G.BiSMemoriesDB.zones = nil
+  M.zoneShots = 0
+  M.SeeZone("Mulgore")                                  -- so nothing below is the free first one
+
+  -- FIRED, not called: the camera only hears an event it actually registered for, and a test
+  -- that calls OnEvent by hand passes just as happily when the name is missing from the list.
+  _G.GetRealZoneText = function() return "The Barrens" end
+  fire("ZONE_CHANGED")
+  H.ok(_G.BiSMemoriesDB.zones["The Barrens"] == true, "a quiet zone change is still written down")
+  H.ok(M.NewZone("The Barrens") == nil, "so walking back in later is not worth a picture")
+
+  _G.GetRealZoneText = function() return "Ashenvale" end
+  fire("ZONE_CHANGED_INDOORS")
+  H.ok(_G.BiSMemoriesDB.zones["Ashenvale"] == true, "and so is stepping indoors")
+
+  -- a picture taken anywhere is proof you were there, whatever the reason was
+  _G.GetRealZoneText = function() return "Durotar" end
+  local dz = NS.DB()
+  dz.levelup, dz.gap = true, 0
+  M.OnEvent("PLAYER_LEVEL_UP", 12)
+  H.ok(_G.BiSMemoriesDB.zones["Durotar"] == true,
+       "a photograph of a place is proof enough that you have been there")
+
+  -- AND A CEILING ON THE CAMERA, whatever the client does: three new places in one session is a
+  -- good day's exploring, and the fortieth is a bug with a camera. Learning is not rationed.
+  _G.GetRealZoneText = realGet
+  M.zoneShots = 0
+  local shot = 0
+  for i = 1, 8 do
+    if M.NewZone("Place " .. i) then shot = shot + 1 end
+  end
+  H.eq(shot, 3, "at most three new-place pictures in one session")
+  H.ok(_G.BiSMemoriesDB.zones["Place 8"] == true,
+       "but all eight are written down, so none of them is new tomorrow")
+  M.zoneShots = 0
+end
 
 _G.UnitName = function(u) return u == "player" and "Kumlust Surname" or "Someone" end
 -- TBC writes "%s has defeated %s"; WoW Forever writes "%1$s has defeated %2$s" (seen in game,
@@ -334,6 +380,24 @@ do
   fire("ADDON_LOADED", "BiSMemories")
   H.ok(NS.rescued == false and M.Log()[1].detail == "Barrens",
        "a client that hands back both changes nothing")
+
+  -- WHERE YOU HAVE BEEN COMES HOME ON ITS OWN, not as a passenger on the log. The rescue above is
+  -- gated on the log, and `zones` only ever rode along with it - so a character who had taken no
+  -- photograph yet started every login with an empty map, and everywhere they knew was "new"
+  -- again. That is the 24 Sep complaint, in one line of saved variables.
+  _G.BiSMemoriesDB = { log = { { at = 3, file = "WoWScrnShot_3", reason = "boss", detail = "Moroes" } } }
+  _G.BiSMemoriesCharDB = { zones = { ["Thunder Bluff"] = true, ["Mulgore"] = true } }
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(_G.BiSMemoriesDB.zones and _G.BiSMemoriesDB.zones["Thunder Bluff"],
+       "the places come back even when the log did not need rescuing")
+
+  -- and MERGED, not replaced: neither copy is more right about a place than the other
+  _G.BiSMemoriesDB = { zones = { ["Durotar"] = true },
+                       log = { { at = 4, file = "WoWScrnShot_4", reason = "boss", detail = "Attumen" } } }
+  _G.BiSMemoriesCharDB = { zones = { ["Ashenvale"] = true } }
+  fire("ADDON_LOADED", "BiSMemories")
+  H.ok(_G.BiSMemoriesDB.zones["Durotar"] and _G.BiSMemoriesDB.zones["Ashenvale"],
+       "two half-remembered maps make one whole one")
 end
 
 -- THE JOURNAL. Arn asked for the album in the addon, reading the Screenshots folder. The reading
@@ -449,6 +513,33 @@ do
   H.ok(#((M.Log()[1] or {}).with or {}) == 1,
        "the one name it would say is kept, the two it hid are dropped",
        #((M.Log()[1] or {}).with or {}))
+
+  -- AND A HIDDEN ZONE NAME NEVER BECOMES A KEY. Every other client value in this file is
+  -- scrubbed; the one place that used one as a table KEY took it raw. A secret is a new object
+  -- every time it is asked for, so such a key can never match itself again: the zone would be
+  -- "new" on every crossing, for ever, and a thing no test can name would be sitting in the
+  -- player's saved variables.
+  -- A SECRET STRING IS STILL A STRING. The metatable above errors on the reads that matter, which
+  -- is faithful for concat and compare - but `type()` on it says "table", and that alone would
+  -- turn away a name the real client hands over as a perfectly ordinary-looking string. The only
+  -- honest stand-in is a plain string the client ADMITS is secret, which is what issecretvalue is
+  -- for, and the only guard that can then reject it is the one being tested.
+  local realZoneText, realSecret2 = _G.GetRealZoneText, _G.issecretvalue
+  _G.issecretvalue = function(v) return v == "Hidden Hollow" or getmetatable(v) == secretMeta end
+  _G.GetRealZoneText = function() return "Hidden Hollow" end
+  local before = 0
+  for _ in pairs(_G.BiSMemoriesDB.zones or {}) do before = before + 1 end
+  local asked, verdict = pcall(M.NewZone, _G.GetRealZoneText())
+  H.ok(asked and verdict == nil, "a zone the client hides is not a new place", tostring(verdict))
+  -- and the same for the quiet door into the list, which has its own guard to keep
+  local learnt, why2 = pcall(M.SeeZone, _G.GetRealZoneText())
+  H.ok(learnt and why2 == nil, "nor is it quietly learned by the other door", tostring(why2))
+  local after = 0
+  for _ in pairs(_G.BiSMemoriesDB.zones or {}) do after = after + 1 end
+  H.eq(after, before, "and nothing a test cannot name is written into the list")
+  H.ok((_G.BiSMemoriesDB.zones or {})["Hidden Hollow"] == nil,
+       "a name the client hides never becomes a key - it could never match itself again")
+  _G.GetRealZoneText, _G.issecretvalue = realZoneText, realSecret2
   _G.UnitLevel, _G.UnitName, _G.issecretvalue = realLevel, realName, realSecret
   _G.GetNumGroupMembers, _G.UnitExists = realNum, realExists
 end
