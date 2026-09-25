@@ -82,6 +82,7 @@ local function shotStem()
 end
 
 local plain   -- below; a zone name is compared here, and a hidden one must not be
+local realZone  -- below too, and used by M.Shoot which is written before it
 
 local function where()
   local zone = plain((GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText())) or "?"
@@ -143,6 +144,10 @@ function M.Shoot(reason, detail)
   local now = (GetTime and GetTime()) or 0
   if lastShot > 0 and (now - lastShot) < (d.gap or 8) then return nil, "too soon" end
   lastShot = now
+
+  -- A PICTURE OF A PLACE IS PROOF YOU HAVE BEEN THERE. Whatever the reason - a level, a boss, a
+  -- candid - the zone goes on the list, so it is never later mistaken for somewhere new.
+  M.SeeZone(realZone())
 
   local entry = {
     reason = reason,
@@ -293,17 +298,54 @@ end
 
 --------------------------------------------------------------------- the rest --
 
+--- WHERE YOU HAVE BEEN, written down whether or not a picture is taken. Arn, 24 Sep: "memories is
+--- taking too many screenshots of places that i have already been at".
+---
+--- His saved file said why, after days of play: `zones = { ["Thunder Bluff"] = true }` - ONE - and
+--- a log whose entries were all taken on Zephras Isle. The list was only ever written at the
+--- moment the camera decided to fire, so every zone he entered while ZONE_CHANGED_NEW_AREA was
+--- quiet (and on this client it is quiet a lot) went unrecorded. The next time that event did
+--- speak up there, the place was "new" - and he got a photograph of somewhere he had been all week.
+---
+--- So the list is fed from every event that knows where you are, and from every picture taken
+--- anywhere. Learning is free; only the camera is rationed.
+function M.SeeZone(name)
+  name = plain(name)
+  if type(name) ~= "string" or name == "" or name == "?" then return nil end
+  local d = db()
+  d.zones = type(d.zones) == "table" and d.zones or {}
+  if d.zones[name] then return nil end
+  d.zones[name] = true
+  return name
+end
+
+--- The real zone, as a name that can be compared. Everywhere else in this file a client value is
+--- scrubbed; the one place that used one as a TABLE KEY took it raw, and a secret key is a new
+--- object every time it is asked for - so a zone whose name came back hidden could never match
+--- itself again, and was "new" on every single crossing.
+function realZone()
+  return plain((GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()))
+end
+M.RealZone = realZone
+
+-- AND A CEILING, because a client that hides a name or forgets to fire is not something this
+-- addon can fix from the inside. Three zone pictures in one session is a good day's exploring;
+-- the fortieth is a bug with a camera. Learning still has no limit - only the shutter.
+M.zoneShots = 0
+local ZONE_MAX = 3
+
 --- A zone this character has never been photographed in. The very first zone the addon ever sees
 --- is only remembered, not shot: otherwise installing it somewhere you have lived for a year
 --- produces a picture of your own bank.
 function M.NewZone(name)
-  if not name or name == "" then return nil end
+  name = plain(name)
+  if type(name) ~= "string" or name == "" then return nil end
   local d = db()
-  d.zones = type(d.zones) == "table" and d.zones or {}
-  if d.zones[name] then return nil end
-  local first = next(d.zones) == nil
-  d.zones[name] = true
-  if first then return nil end
+  local known = type(d.zones) == "table" and next(d.zones) ~= nil
+  if not M.SeeZone(name) then return nil, "been here" end
+  if not known then return nil, "the first place it ever saw" end
+  if M.zoneShots >= ZONE_MAX then return nil, "enough new places for one session" end
+  M.zoneShots = M.zoneShots + 1
   return name
 end
 
@@ -374,7 +416,8 @@ local EVENTS = {
   "PLAYER_LEVEL_UP", "PLAYER_LEVEL_CHANGED",     -- the old name and the modern one
   "BOSS_KILL", "ENCOUNTER_END",
   "CHAT_MSG_LOOT", "ACHIEVEMENT_EARNED", "PLAYER_DEAD",
-  "ZONE_CHANGED_NEW_AREA", "CHAT_MSG_SYSTEM", "CHAT_MSG_COMBAT_FACTION_CHANGE",
+  "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
+  "CHAT_MSG_SYSTEM", "CHAT_MSG_COMBAT_FACTION_CHANGE",
   "PLAYER_ENTERING_WORLD",
   "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED",
 }
@@ -490,9 +533,16 @@ function M.Decide(event, ...)
     return M.Shoot("death", where())
 
   elseif event == "ZONE_CHANGED_NEW_AREA" then
-    local zone = M.NewZone((GetRealZoneText and GetRealZoneText()) or nil)
-    if not zone then return nil, "been here" end
+    local zone, why = M.NewZone(realZone())
+    if not zone then return nil, why or "been here" end
     return M.Shoot("zone", zone)
+
+  -- THE QUIET ONES, which only ever teach it where you are. They fire on crossings the big one
+  -- misses - and every zone written down here is a picture NOT taken later for somewhere you
+  -- already know.
+  elseif event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+    local learnt = M.SeeZone(realZone())
+    return nil, learnt and ("noted " .. learnt) or "already known"
 
   elseif event == "CHAT_MSG_SYSTEM" then
     local loser = M.DuelWon(select(1, ...))
@@ -505,6 +555,7 @@ function M.Decide(event, ...)
     return M.Shoot("exalted", line)
 
   elseif event == "PLAYER_ENTERING_WORLD" then
+    M.SeeZone(realZone())             -- wherever you logged in or zoned to, known from now on
     M.ArmCandid()                     -- a week up? book a moment somewhere in this session
     return nil, "candid considered"
 
