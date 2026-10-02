@@ -2,7 +2,7 @@
 ## Title: |cffb980ffBiS|r Memories
 ## Notes: Takes a screenshot when something worth remembering happens, and keeps a note of what it was.
 ## Author: Arn
-## Version: 0.5.1
+## Version: 0.5.2
 ## SavedVariables: BiSMemoriesDB
 ## SavedVariablesPerCharacter: BiSMemoriesCharDB
 ## OptionalDeps: BiSTheme

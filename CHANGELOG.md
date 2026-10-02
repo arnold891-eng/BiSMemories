@@ -1,5 +1,23 @@
 # BiSMemories
 
+## 0.5.2
+
+- **Fixed: pictures of places you have been a hundred times.** The addon only wrote a zone down at
+  the moment it decided to photograph it, and the event that decides is quiet for whole evenings on
+  this client - so everywhere you walked in between stayed unknown, ready to be "new" the next
+  time. It now learns where you are from every event that knows, and from every picture taken for
+  any reason at all: a photograph of a place is proof you have been there.
+- **Fixed: the places you know were forgotten at every login.** This client does not hand back the
+  account-wide settings file, and the rescue that saves your notes only ran when there were notes
+  to save - so a character who had not taken a photograph yet started each session with an empty
+  map. The two copies of the list are now merged on their own.
+- **A zone name the game hides is no longer treated as a place.** It could never match itself
+  again, so that zone was "new" on every single crossing.
+- **At most three new-place pictures in a session**, whatever the client does. Learning where you
+  have been is not limited - only the camera.
+- **`/memories zones`** says how many places it remembers, and how many new-place pictures it has
+  taken this session.
+
 ## 0.5.1
 
 - **Fixed: an error in dungeons from messages the game hides.** On WoW Forever the game can hide
