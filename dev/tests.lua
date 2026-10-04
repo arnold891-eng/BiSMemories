@@ -638,6 +638,19 @@ do
 end
 
 
+H.section("the window has room for what is in it")
+-- Arn's screenshot, 3 Oct: the copy box and its label printed straight through the last two
+-- memories. Twelve rows of twenty, starting 34 down, end 274 below the top; the box and its label
+-- want about 70 from the bottom. A suite cannot see an overlap, but it can see the arithmetic.
+do
+  local f = NS.J.Build and NS.J.Build() or NS.J.frame
+  if f and f.GetHeight then
+    local rowsEnd = 34 + 12 * 20           -- where the last row's bottom lands
+    H.eq(f:GetHeight() - rowsEnd >= 66, true,
+         "the rows stop above the copy box rather than behind it")
+  end
+end
+
 H.section("where the album page is")
 -- Arn went looking for the page on disk and nothing in game said where. An addon cannot know its
 -- own full path - no API for the install folder, none for the version folder - so the certain tail

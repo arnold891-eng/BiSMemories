@@ -29,7 +29,11 @@ ns.J = J
 
 local ROWS = 12                 -- how many fit; the wheel moves a page of them
 local GAP = 3 * 60 * 60         -- seconds of quiet that end a raid night (same rule as the album)
-local W, H = 440, 300
+-- TALL ENOUGH FOR WHAT IS IN IT. 300 was right for twelve rows and a footer; the copy box and its
+-- label went in underneath and printed straight through the last two memories (3 Oct 2026, Arn's
+-- screenshot). Twelve rows end 270 below the top, the box and its label want about 70 from the
+-- bottom, and the arithmetic has to be written down or the next thing added lands on top again.
+local W, H = 440, 348
 
 local function when(at)
   if not at or at == 0 then return "?" end
@@ -243,9 +247,12 @@ function J.Refresh()
   -- the copy box, every refresh, so `/memories wow` shows up without reopening the window
   f.pathBox:SetText(J.AlbumPath())
   f.pathBox:SetCursorPosition(0)
+  -- SHORT ENOUGH TO FIT ON THE BAR. The first wording ran off the right edge of a 440 wide window
+  -- and was cut mid-word; the long explanation belongs in /memories path, which has a whole chat
+  -- frame to use.
   f.pathLabel:SetText(T.text("muted", J.AlbumPathWhole()
-    and "the album page - click to select, Ctrl+C to copy, paste into your browser"
-    or "the album page, inside your WoW version folder - /memories wow <that folder> to get the whole path"))
+    and "the album page - click it, then Ctrl+C"
+    or "the album page - inside your WoW folder. /memories wow <folder> for the whole path"))
 
   if n == 0 then
     f.foot:SetText(T.text("muted",
