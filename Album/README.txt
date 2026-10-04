@@ -12,9 +12,10 @@ HOW TO USE IT
 
 2. Click "Choose your Screenshots folder" and point it at:
 
-       World of Warcraft\_classic_beta_\Screenshots
+       C:\Program Files (x86)\World of Warcraft\_classic_beta_\Screenshots
 
-   (or _classic_era_, _classic_, _retail_ - whichever version you play)
+   Swap _classic_beta_ for whichever you play - _classic_era_, _classic_, _retail_ - and if you
+   installed WoW somewhere else, it is the Screenshots folder sitting beside the WTF folder.
 
    Your browser will ask whether to let the page read that folder. Say yes. That prompt is the
    browser protecting you; the page is not asking for anything else.
@@ -40,9 +41,21 @@ FOR THE CAPTIONS
 ----------------
 
 The pictures alone give you dates. The addon knows more - the zone, your level, why the picture
-was taken - and it keeps that in its saved file. Click "Add the addon's notes" and pick:
+was taken - and it keeps that in its saved file.
 
-    World of Warcraft\<version>\WTF\Account\<YOUR ACCOUNT>\SavedVariables\BiSMemories.lua
+THAT FILE IS NOT IN YOUR ADDONS FOLDER. It is in WTF, which is where WoW keeps everything it
+remembers about you. Click "Add the addon's notes" and pick:
+
+    C:\Program Files (x86)\World of Warcraft\_classic_beta_\WTF\Account\<ACCOUNT>\SavedVariables\BiSMemories.lua
+
+<ACCOUNT> is a number and a hash - something like 213614#1 - not your email address. Open
+WTF\Account and there is usually only one folder in there; go into that one.
+
+There is a second copy further in, under your realm and character:
+
+    ...\WTF\Account\<ACCOUNT>\<Realm>\<Character>\SavedVariables\BiSMemories.lua
+
+Either works. The first is simpler because it holds every character you play.
 
 Now every picture the addon took carries its story. Pictures you took yourself still show, just
 without a caption.

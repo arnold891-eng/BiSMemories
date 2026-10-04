@@ -121,13 +121,28 @@
 
 <main>
   <div class="empty" id="empty">
-    <p><b>Nothing loaded yet.</b> Click <i>Choose your Screenshots folder</i> above.</p>
-    <p>It is usually here:</p>
-    <p><code>World of Warcraft\_classic_beta_\Screenshots</code><br>
-       <code>World of Warcraft\_classic_era_\Screenshots</code></p>
-    <p>For the captions, the addon's notes file is here &mdash; pick your own account and character
-       folder:</p>
-    <p><code>World of Warcraft\&lt;version&gt;\WTF\Account\&lt;ACCOUNT&gt;\SavedVariables\BiSMemories.lua</code></p>
+    <p><b>Nothing loaded yet.</b> Click <i>Choose your Screenshots folder</i> above, or drag the
+       folder onto this page.</p>
+
+    <p><b>1. The pictures</b> &mdash; your Screenshots folder:</p>
+    <p><code>C:\Program Files (x86)\World of Warcraft\_classic_beta_\Screenshots</code></p>
+    <p style="color:var(--muted)">Replace <code>_classic_beta_</code> with whichever you play:
+       <code>_classic_era_</code>, <code>_classic_</code>, <code>_retail_</code>. If you installed
+       WoW somewhere else, it is the <code>Screenshots</code> folder beside that
+       <code>WTF</code> one.</p>
+
+    <p><b>2. The captions</b> &mdash; the addon's saved file. <b>This one is NOT in your AddOns
+       folder.</b> It lives in <code>WTF</code>, which is where WoW keeps everything it remembers
+       about you:</p>
+    <p><code>C:\Program Files (x86)\World of Warcraft\_classic_beta_\WTF\Account\&lt;ACCOUNT&gt;\SavedVariables\BiSMemories.lua</code></p>
+    <p style="color:var(--muted)">
+       <b>&lt;ACCOUNT&gt;</b> is a number and a hash, something like <code>213614#1</code> &mdash;
+       not your email. Open <code>WTF\Account</code> and there will usually be only one folder in
+       it; go into that one.<br>
+       There is a second copy under your realm and character
+       (<code>&hellip;\Account\&lt;ACCOUNT&gt;\&lt;Realm&gt;\&lt;Character&gt;\SavedVariables\</code>) and
+       either works &mdash; the one above is simplest because it holds every character.</p>
+
     <p style="color:var(--muted)">Your browser may ask permission to read the folder. That is the
        browser protecting you, not this page asking for anything &mdash; say yes and the pictures
        are read from disk and shown. They never leave your machine.</p>
