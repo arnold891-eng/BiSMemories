@@ -60,6 +60,15 @@ Either works. The first is simpler because it holds every character you play.
 Now every picture the addon took carries its story. Pictures you took yourself still show, just
 without a caption.
 
+You only have to do this once. The page keeps the notes in your browser, so the next time you
+open it the captions are already there and it asks for the Screenshots folder alone. It tells you
+what it kept and when, and there is a "forget them" beside that line. Load the file again
+whenever you want the newer notes - pictures taken since the last time you loaded it have none.
+
+The FOLDERS cannot be remembered, only the notes. When you pick a folder, the page is handed the
+files and the folder's name, never where it sits on your disk - so it has nothing to go back to.
+That is the same rule as the one below: a web page may not wander your drive.
+
 
 THINGS WORTH KNOWING
 --------------------
@@ -69,7 +78,8 @@ THINGS WORTH KNOWING
   and it works exactly the same.
 
 * It cannot go looking for the folder by itself. A web page is not allowed to wander around your
-  hard drive, which is a good thing, so you point it at the folder once per visit.
+  hard drive, which is a good thing, so you point it at the Screenshots folder once per visit.
+  The captions are the part it can keep.
 
 * Dates come from the filename, not from the file. The client names screenshots
   WoWScrnShot_MMDDYY_HHMMSS, and that is the only honest timestamp: a file's "modified" date is

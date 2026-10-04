@@ -470,6 +470,15 @@ do
   H.ok(page and page:find("http", 1, true) == nil or not page:find("src=\"http", 1, true),
        "nothing is fetched from the internet: it must work offline")
   H.ok(bytes(HERE .. "/../Album/README.txt") ~= nil, "with the instructions beside it")
+
+  -- IT REMEMBERS THE NOTES, AND SAYS SO. The saved file is the one nobody finds twice - it is in
+  -- WTF, not AddOns - so the page keeps the notes between visits and only asks for the pictures.
+  -- The "forget" is not decoration: notes kept silently go stale, and a picture taken after the
+  -- save has no caption, which looks exactly like the addon having stopped writing them.
+  H.ok(page and page:find("localStorage", 1, true) ~= nil,
+       "the album remembers the notes between visits, so only the pictures are asked for")
+  H.ok(page and page:find("function forget(", 1, true) ~= nil,
+       "and can be told to forget them - kept notes go stale and must not be a trap")
 end
 
 -- A MEMORY TAKEN WHILE THE CLIENT IS HIDING THINGS. Boss kills and deaths fire IN COMBAT, which
