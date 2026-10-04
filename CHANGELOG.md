@@ -1,5 +1,27 @@
 # BiSMemories
 
+## 0.5.3
+
+- **Find one picture among hundreds.** The album page has a search box — type a zone, a boss, an
+  item, a level, and it shows only those. Beside it is a row of counts (`12 boss`, `12 death`,
+  `18 zone`); click one to see just those, click it again to stop. With a search or a filter on, the
+  arrow keys move between the pictures you can **see**, so filtering to boss kills and holding right
+  walks you through the boss kills.
+- **Drag your Screenshots folder onto the page** if you would rather not browse for it.
+- **The album page's address, in game and ready to copy.** `/memories path`, or the box at the
+  bottom of `/memories journal` — click it and the whole line selects, then Ctrl+C and paste it into
+  your browser. Tell it where WoW lives once with `/memories wow <folder>` and it shows the complete
+  path from the drive down, whatever your version folder happens to be called.
+- **Both folders are spelled out now**, on the page and in the album's README — including the one
+  that catches everybody: the addon's saved file is **not** in your AddOns folder, it is in `WTF`.
+  The account folder is a number and a hash, not your email.
+- **Fixed: a note you typed came out in lower case.** `/memories now Killed Baron Silverlaine` was
+  stored as "killed baron silverlaine" — the whole command line was being flattened, including the
+  part that is your own words.
+- **Fixed: the window wrote over its own last two memories** after the copy box was added.
+- The album's instructions no longer claim your captions are wiped at every login. That was true
+  once and was fixed in 0.5.2; the page had not been told.
+
 ## 0.5.2
 
 - **Fixed: pictures of places you have been a hundred times.** The addon only wrote a zone down at
