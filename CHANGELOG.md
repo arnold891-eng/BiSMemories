@@ -1,6 +1,6 @@
 # BiSMemories
 
-## Unreleased
+## 0.5.4
 
 - **The album remembers your captions.** Load the addon's saved file once and the next time you
   open the page they are already in it &mdash; you only point it at your Screenshots folder. That
