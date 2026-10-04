@@ -41,6 +41,13 @@
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn input { display: none; }
   .count { color: var(--muted); font-size: 13px; }
+  /* WHAT IT REMEMBERED. Remembering silently is a trap: notes saved last week say nothing about
+     pictures taken since, and without a date on screen that looks like the addon stopped writing
+     them. So the page says what it kept and when, and the way to throw it away is right there. */
+  .kept { color: var(--muted); font-size: 13px; flex-basis: 100%; margin-top: 2px; }
+  .kept b { color: var(--ink); font-weight: 600; }
+  .kept span { cursor: pointer; text-decoration: underline; margin-left: 8px; }
+  .kept span:hover { color: var(--accent); }
   main { padding: 18px 20px 60px; }
   .day { margin: 26px 0 10px; color: var(--accent); font-size: 15px; letter-spacing: .4px; }
   .day span { color: var(--muted); font-size: 13px; margin-left: 8px; }
@@ -111,6 +118,7 @@
       <input type="file" id="notes" accept=".lua,.txt">
     </label>
     <span class="count" id="count"></span>
+    <div class="kept" id="kept" style="display:none"></div>
   </div>
   <div class="find" id="find" style="display:none">
     <input type="search" id="q" placeholder="search a zone, a boss, an item&hellip;" autocomplete="off">
@@ -131,9 +139,9 @@
        WoW somewhere else, it is the <code>Screenshots</code> folder beside that
        <code>WTF</code> one.</p>
 
-    <p><b>2. The captions</b> &mdash; the addon's saved file. <b>This one is NOT in your AddOns
-       folder.</b> It lives in <code>WTF</code>, which is where WoW keeps everything it remembers
-       about you:</p>
+    <p id="step-notes"><b>2. The captions</b> &mdash; the addon's saved file. <b>This one is NOT in
+       your AddOns folder.</b> It lives in <code>WTF</code>, which is where WoW keeps everything it
+       remembers about you:</p>
     <p><code>C:\Program Files (x86)\World of Warcraft\_classic_beta_\WTF\Account\&lt;ACCOUNT&gt;\SavedVariables\BiSMemories.lua</code></p>
     <p style="color:var(--muted)">
        <b>&lt;ACCOUNT&gt;</b> is a number and a hash, something like <code>213614#1</code> &mdash;
@@ -516,11 +524,70 @@ document.addEventListener("drop", function (e) {
   });
 });
 
+/* REMEMBERING THE NOTES BETWEEN VISITS (3 Oct 2026).
+   Arn: "once the folders are selected is there a way to save the paths in the html".
+
+   Half of it. The notes are text - a few kilobytes for a year of them - so they keep. The FOLDER
+   cannot: a file input hands the page the files and the folder's NAME, never where it is on the
+   disk, and the one browser API that could remember a folder is refused for Program Files, which
+   is where WoW installs itself. So the pictures must be picked every time and that is the end of
+   it; what this saves is the second trip, for the file buried in WTF that nobody finds twice.
+
+   Measured on this machine before it was built: a file:// page CAN use localStorage in Chrome,
+   and 54 notes came back after the tab was closed. Every call is still wrapped, because a browser
+   with storage switched off must behave exactly as the page did before - ask for both, say
+   nothing - and not throw on the first line and show an empty album. */
+var KEY = "bism-album-notes-1";
+var keptAt = null;
+
+function remember(n) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ saved: Date.now(), notes: n }));
+    keptAt = Date.now();
+  } catch (e) { keptAt = null; }   // private window, storage off, or full - not worth a word
+  showKept();
+}
+
+function recall() {
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    var got = JSON.parse(raw);
+    if (!got || typeof got.notes !== "object" || !got.notes) return null;
+    return got;
+  } catch (e) { return null; }     // written by an older version, or half-written
+}
+
+function forget() {
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  notes = {};
+  keptAt = null;
+  shots.forEach(function (s) { s.note = null; });
+  showKept();
+  render();
+}
+
+function showKept() {
+  var el = document.getElementById("kept");
+  var n = 0, k;
+  for (k in notes) if (Object.prototype.hasOwnProperty.call(notes, k)) n++;
+  if (!n || !keptAt) { el.style.display = "none"; el.textContent = ""; return; }
+  var d = new Date(keptAt);
+  var when = d.getDate() + " " +
+             ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  el.style.display = "";
+  el.innerHTML = "<b>" + n + "</b> note" + (n === 1 ? "" : "s") + " remembered from this browser, " +
+                 "saved " + when + ". Pictures taken since then will have none until you load the " +
+                 "file again.<span id=\"forget\">forget them</span>";
+  document.getElementById("forget").onclick = forget;
+}
+
 function readNotesFile(f) {
   var r = new FileReader();
   r.onload = function () {
     notes = readNotes(String(r.result || ""));
     shots.forEach(function (s) { s.note = notes[s.name.replace(/\.[a-z]+$/i, "")] || null; });
+    remember(notes);
     render();
   };
   r.readAsText(f);
@@ -530,6 +597,22 @@ document.getElementById("notes").addEventListener("change", function (e) {
   var f = (e.target.files || [])[0];
   if (f) readNotesFile(f);
 });
+
+// Last visit's notes, before anything is picked. The pictures load later and take their captions
+// from `notes` as they go (loadFiles), so there is nothing to re-attach here.
+(function () {
+  var got = recall();
+  if (!got) return;
+  notes = got.notes;
+  keptAt = got.saved || null;
+  showKept();
+  var second = document.getElementById("step-notes");
+  if (second) {
+    second.innerHTML = "<b>2. The captions</b> &mdash; <b>already here.</b> This browser kept them " +
+      "from last time, so you only need the Screenshots folder above. Load the file again when you " +
+      "want the newer ones &mdash; it is still in <code>WTF</code>, not in your AddOns folder:";
+  }
+})();
 </script>
 </body>
 </html>

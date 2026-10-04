@@ -1,5 +1,19 @@
 # BiSMemories
 
+## Unreleased
+
+- **The album remembers your captions.** Load the addon's saved file once and the next time you
+  open the page they are already in it &mdash; you only point it at your Screenshots folder. That
+  is the trip worth saving, because the saved file is the one nobody finds twice: it is in `WTF`,
+  not in your AddOns folder. The page says how many it kept and when, with a **forget them**
+  beside it, and loading the file again replaces them &mdash; pictures taken since the last load
+  have no caption until you do.
+
+  **The folders themselves cannot be remembered, only the notes.** When you pick a folder your
+  browser hands the page the files and the folder's name, never where it is on your disk, so
+  there is nothing to go back to. A browser with storage switched off simply asks for both, the
+  way it always did.
+
 ## 0.5.3
 
 - **Find one picture among hundreds.** The album page has a search box — type a zone, a boss, an
