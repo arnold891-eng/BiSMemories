@@ -19,8 +19,21 @@ HOW TO USE IT
    Your browser will ask whether to let the page read that folder. Say yes. That prompt is the
    browser protecting you; the page is not asking for anything else.
 
+   You can also just DRAG the Screenshots folder onto the page, which saves the browsing.
+
 3. That is the album. Click a picture to see it full size, arrow keys to move between them,
    Escape to come back.
+
+
+FINDING ONE PICTURE
+-------------------
+
+Search the box at the top for a zone, a boss, an item, a level - anything the addon wrote down,
+and the filename besides. Beside it is a row of counts: "12 boss", "12 death", "18 zone". Click
+one to see only those, click it again to stop.
+
+With a search or a filter on, the arrow keys move between the pictures you can SEE, not all of
+them - so filtering to boss kills and holding right takes you through the boss kills.
 
 
 FOR THE CAPTIONS
@@ -53,9 +66,8 @@ THINGS WORTH KNOWING
 * Chrome, Edge and Firefox can all pick a folder. Safari is patchy about it; if the folder button
   does nothing there, use another browser.
 
-* On the WoW Forever beta the addon's saved file is emptied by the client at every login - that
-  is a client fault affecting every addon, not this one. Your PICTURES are unaffected; only the
-  captions for older sessions are missing.
+* Notes are written when you log out or /reload, never the moment the picture is taken. A shot
+  from the last few minutes of play has no caption yet - reload the game and it will.
 
 
 /memories journal in game shows the same notes as a list, without the pictures - an addon cannot

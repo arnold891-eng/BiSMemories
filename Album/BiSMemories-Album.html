@@ -67,6 +67,31 @@
   #box .x { position: absolute; top: 14px; right: 18px; color: var(--muted); cursor: pointer;
             font-size: 26px; line-height: 1; }
   #box .x:hover { color: var(--ink); }
+
+  /* FINDING ONE PICTURE AMONG HUNDREDS. 330 shots and 58 notes with nothing but scrolling was the
+     whole complaint; a search box and a row of counts is the answer. The counts double as the
+     filter, because a number you can read is a number you want to click. */
+  .find { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .find input { font: inherit; color: var(--ink); background: #241f30; border: 1px solid #4a4458;
+                border-radius: 6px; padding: 7px 11px; min-width: 230px; }
+  .find input:focus { outline: none; border-color: var(--accent); }
+  .find input::placeholder { color: var(--muted); }
+  .tally { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tally button { font: inherit; font-size: 13px; cursor: pointer; color: var(--muted);
+                  background: #241f30; border: 1px solid #3a3448; border-radius: 999px;
+                  padding: 5px 12px; }
+  .tally button:hover { color: var(--ink); border-color: var(--accent); }
+  .tally button.on { color: #14121a; background: var(--accent); border-color: var(--accent);
+                     font-weight: 600; }
+  .tally button b { font-weight: 600; }
+  .find .clear { color: var(--muted); cursor: pointer; font-size: 13px; text-decoration: underline; }
+  .find .clear:hover { color: var(--ink); }
+  .nohits { color: var(--muted); padding: 40px 0; text-align: center; }
+  /* the whole page is a drop target, because the button is unavoidable and dragging is kinder */
+  body.dropping::after { content: "Drop your Screenshots folder"; position: fixed; inset: 0;
+                         display: flex; align-items: center; justify-content: center;
+                         background: rgba(20,18,26,.88); color: var(--accent); font-size: 22px;
+                         border: 3px dashed var(--accent); z-index: 80; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -86,6 +111,11 @@
       <input type="file" id="notes" accept=".lua,.txt">
     </label>
     <span class="count" id="count"></span>
+  </div>
+  <div class="find" id="find" style="display:none">
+    <input type="search" id="q" placeholder="search a zone, a boss, an item&hellip;" autocomplete="off">
+    <div class="tally" id="tally"></div>
+    <span class="clear" id="clear" style="display:none">show everything</span>
   </div>
 </header>
 
@@ -116,9 +146,12 @@
 <script>
 "use strict";
 
-var shots = [];      // { file, name, url, at, note }
+var shots = [];      // { file, name, url, at, note } - everything loaded
+var view  = [];      // what is on screen after the search and the filter
 var notes = {};      // filename (no extension) -> note from the addon
-var at = -1;         // which one the lightbox is showing
+var at = -1;         // which one the lightbox is showing, as an index into VIEW
+var query = "";      // what is typed in the search box, lowercased
+var reason = null;   // one trigger, when a count has been clicked
 
 // WoWScrnShot_091926_165152.jpg -> 19 Sep 2026, 16:51:52. The client names them MMDDYY_HHMMSS,
 // which is the only date we get: a file's "last modified" is when it was copied, not when it was
@@ -231,20 +264,73 @@ function readNotes(text) {
   return out;
 }
 
+// WHAT THE SEARCH LOOKS AT: everything the note holds plus the filename, so "shadowfang", "epic",
+// "level 30" and a boss's name all find the same picture by whichever word you happened to
+// remember. A picture with no note is still findable by its date.
+function haystack(s) {
+  var n = s.note || {};
+  return [s.name, clock(s.at) || "", n.reason || "", n.zone || "", n.level ? "level " + n.level : "",
+          pretty(n.detail || "").replace(/<[^>]*>/g, "")].join(" ").toLowerCase();
+}
+
+function matches(s) {
+  if (reason && (!s.note || s.note.reason !== reason)) return false;
+  if (!query) return true;
+  return haystack(s).indexOf(query) !== -1;
+}
+
+// THE COUNTS ARE THE FILTER. A row saying "12 boss, 12 death, 18 zone" answers "what is in here"
+// and "show me those" with the same pixels - and it is built from whatever reasons are actually
+// present, so a trigger nobody uses never appears and a new one needs no code here.
+function tally() {
+  var box = document.getElementById("tally"), counts = {}, order = [], i, r;
+  box.innerHTML = "";
+  for (i = 0; i < shots.length; i++) {
+    r = shots[i].note && shots[i].note.reason;
+    if (!r) continue;
+    if (counts[r] === undefined) { counts[r] = 0; order.push(r); }
+    counts[r]++;
+  }
+  order.sort(function (a, b) { return counts[b] - counts[a]; });
+  order.forEach(function (r) {
+    var b = document.createElement("button");
+    b.innerHTML = "<b>" + counts[r] + "</b> " + esc(r);
+    if (reason === r) b.className = "on";
+    b.onclick = function () { reason = (reason === r) ? null : r; render(); };
+    box.appendChild(b);
+  });
+}
+
 function render() {
   var album = document.getElementById("album");
   var empty = document.getElementById("empty");
   var count = document.getElementById("count");
   album.innerHTML = "";
-  if (!shots.length) { empty.style.display = ""; count.textContent = ""; return; }
+  if (!shots.length) {
+    empty.style.display = ""; count.textContent = "";
+    document.getElementById("find").style.display = "none";
+    return;
+  }
   empty.style.display = "none";
+  document.getElementById("find").style.display = "";
+  tally();
 
   var withNote = 0, i;
   for (i = 0; i < shots.length; i++) { if (shots[i].note) withNote++; }
-  count.textContent = shots.length + " picture" + (shots.length === 1 ? "" : "s") +
+  var shown = shots.filter(matches);
+  view = shown;
+  document.getElementById("clear").style.display = (reason || query) ? "" : "none";
+  count.textContent = (shown.length === shots.length
+      ? shots.length + " picture" + (shots.length === 1 ? "" : "s")
+      : shown.length + " of " + shots.length) +
     (withNote ? ", " + withNote + " with a note" : "");
 
-  sessions(shots).forEach(function (sess) {
+  if (!shown.length) {
+    album.innerHTML = '<p class="nohits">Nothing matches that.</p>';
+    return;
+  }
+
+  sessions(shown).forEach(function (sess) {
     var name = sessionTitle(sess);
     var h = document.createElement("div");
     h.className = "day";
@@ -256,7 +342,7 @@ function render() {
     grid.className = "grid";
     sess.shots.forEach(function (s) {
       var fig = document.createElement("figure");
-      fig.onclick = function () { open(shots.indexOf(s)); };
+      fig.onclick = function () { open(view.indexOf(s)); };
 
       var img = document.createElement("img");
       img.loading = "lazy";
@@ -304,10 +390,13 @@ function esc(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// THE LIGHTBOX WALKS WHAT YOU CAN SEE. Filter to the twelve boss kills and the arrow keys move
+// between those twelve - stepping into pictures the filter just hid would be the filter not
+// meaning anything.
 function open(i) {
-  if (i < 0 || i >= shots.length) return;
+  if (i < 0 || i >= view.length) return;
   at = i;
-  var s = shots[i];
+  var s = view[i];
   document.getElementById("big").src = s.url;
   document.getElementById("bar").innerHTML = s.note
     ? "<b>" + pretty(s.note.detail || s.note.reason || "") + "</b> &middot; " +
@@ -317,7 +406,7 @@ function open(i) {
   document.getElementById("box").classList.add("on");
 }
 function close() { document.getElementById("box").classList.remove("on"); at = -1; }
-function step(by) { if (at >= 0) open(Math.min(shots.length - 1, Math.max(0, at + by))); }
+function step(by) { if (at >= 0) open(Math.min(view.length - 1, Math.max(0, at + by))); }
 
 document.getElementById("x").onclick = close;
 document.getElementById("prev").onclick = function () { step(-1); };
@@ -329,8 +418,23 @@ document.addEventListener("keydown", function (e) {
   else if (e.key === "ArrowRight") step(1);
 });
 
-document.getElementById("pics").addEventListener("change", function (e) {
-  var files = Array.prototype.slice.call(e.target.files || []);
+document.getElementById("q").addEventListener("input", function (e) {
+  query = String(e.target.value || "").trim().toLowerCase();
+  render();
+});
+
+document.getElementById("clear").onclick = function () {
+  query = ""; reason = null;
+  document.getElementById("q").value = "";
+  render();
+};
+
+// DRAGGING THE FOLDER IN. The button cannot go away - Chrome will not let a page opened from a
+// file reach into Program Files any other way, which is where WoW installs itself - so the next
+// kindest thing is to accept the folder dropped on the page. Measured 3 Oct 2026: the modern
+// picker IS present on a file:// page and refuses the folder outright, "file:/// can't open this
+// folder because it contains system files".
+function loadFiles(files) {
   shots = [];
   files.forEach(function (f) {
     if (!/\.(jpe?g|png|tga)$/i.test(f.name)) return;
@@ -346,11 +450,58 @@ document.getElementById("pics").addEventListener("change", function (e) {
     return b.at - a.at;
   });
   render();
+}
+
+document.getElementById("pics").addEventListener("change", function (e) {
+  loadFiles(Array.prototype.slice.call(e.target.files || []));
 });
 
-document.getElementById("notes").addEventListener("change", function (e) {
-  var f = (e.target.files || [])[0];
-  if (!f) return;
+// a dropped directory arrives as an entry tree, not a file list, so it is walked
+function walk(entry, out) {
+  return new Promise(function (done) {
+    if (!entry) return done();
+    if (entry.isFile) return entry.file(function (f) { out.push(f); done(); }, done);
+    if (!entry.isDirectory) return done();
+    var reader = entry.createReader(), all = [];
+    (function more() {
+      reader.readEntries(function (batch) {
+        if (!batch.length) {
+          Promise.all(all.map(function (e) { return walk(e, out); })).then(function () { done(); });
+          return;
+        }
+        all = all.concat(batch);
+        more();
+      }, done);
+    })();
+  });
+}
+
+document.addEventListener("dragover", function (e) {
+  e.preventDefault();
+  document.body.classList.add("dropping");
+});
+document.addEventListener("dragleave", function (e) {
+  if (e.relatedTarget === null) document.body.classList.remove("dropping");
+});
+document.addEventListener("drop", function (e) {
+  e.preventDefault();
+  document.body.classList.remove("dropping");
+  var items = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.items) || []);
+  var entries = items.map(function (it) {
+    return it.webkitGetAsEntry ? it.webkitGetAsEntry() : null;
+  }).filter(Boolean);
+  if (!entries.length) return;
+  var out = [];
+  Promise.all(entries.map(function (en) { return walk(en, out); })).then(function () {
+    // a dropped .lua is the notes file, not a picture
+    var lua = out.filter(function (f) { return /\.lua$/i.test(f.name); })[0];
+    if (lua) readNotesFile(lua);
+    var pics = out.filter(function (f) { return /\.(jpe?g|png|tga)$/i.test(f.name); });
+    if (pics.length) loadFiles(pics);
+  });
+});
+
+function readNotesFile(f) {
   var r = new FileReader();
   r.onload = function () {
     notes = readNotes(String(r.result || ""));
@@ -358,6 +509,11 @@ document.getElementById("notes").addEventListener("change", function (e) {
     render();
   };
   r.readAsText(f);
+}
+
+document.getElementById("notes").addEventListener("change", function (e) {
+  var f = (e.target.files || [])[0];
+  if (f) readNotesFile(f);
 });
 </script>
 </body>
