@@ -38,6 +38,44 @@ end
 
 --- One entry as a line of text. Deliberately the same shape as the chat listing in Slash.lua -
 --- two formatters that drift are two things to fix when a field is added.
+--- Where the album page is, as far as this addon can honestly say.
+---
+--- The tail is certain - every WoW install puts an addon in the same place relative to its own
+--- version folder. The head is not knowable from in game, so it is whatever the player told us
+--- with `/memories wow`, and until they do, the line says plainly which bit is missing.
+local TAIL = [[Interface\AddOns\BiSMemories\Album\BiSMemories-Album.html]]
+
+function J.AlbumPath()
+    local d = ns.DB and ns.DB()
+    local root = type(d) == "table" and d.wowPath or nil
+    if type(root) ~= "string" or root == "" then return TAIL end
+    return (root:gsub("[\\/]+$", "")) .. "\\" .. TAIL
+end
+
+--- True when the path above is the whole thing rather than the tail.
+function J.AlbumPathWhole()
+    local d = ns.DB and ns.DB()
+    local root = type(d) == "table" and d.wowPath or nil
+    return type(root) == "string" and root ~= ""
+end
+
+--- Remember where WoW is, so the box holds a path a browser will take. Returns what was stored.
+---
+--- Deliberately not validated beyond trimming: an addon cannot check that a folder exists, and
+--- refusing a path we cannot verify would be refusing the only thing the player knows better
+--- than we do.
+function J.SetWow(path)
+    local d = ns.DB and ns.DB()
+    if type(d) ~= "table" then return nil end
+    if type(path) ~= "string" or path:gsub("%s", "") == "" then
+        d.wowPath = nil
+    else
+        d.wowPath = (path:gsub("^%s+", ""):gsub("%s+$", ""):gsub("[\\/]+$", ""))
+    end
+    if J.frame and J.frame:IsShown() then J.Refresh() end
+    return d.wowPath
+end
+
 function J.Line(e)
   if type(e) ~= "table" then return "" end
   local who = (type(e.with) == "table" and #e.with > 0) and (", with " .. #e.with) or ""
@@ -128,6 +166,38 @@ local function build()
     f.rows[i] = fs
   end
 
+  -- WHERE THE ALBUM IS, IN A BOX YOU CAN COPY (3 Oct 2026). Arn, having gone looking for it:
+  -- the pictures live in a page on disk and nothing in game ever said where. A font string cannot
+  -- be copied, so this is an EditBox - the same trick every export string in every addon uses -
+  -- and clicking it selects the lot, ready for Ctrl+C.
+  --
+  -- NO ADDON CAN KNOW ITS OWN FULL PATH. There is no API for the install directory and none for
+  -- the flavour folder either: GetBuildInfo gives a version, not a place. So the part that is
+  -- ALWAYS true is shown by default, and `/memories wow <folder>` makes it absolute and keeps it.
+  -- That is also why the folder is not written down anywhere here - `_classic_beta_` is today's
+  -- name and will not be the name at launch, and a guess that goes stale is worse than a line that
+  -- tells the truth.
+  f.pathLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  f.pathLabel:SetPoint("BOTTOMLEFT", 12, 50)
+  f.pathLabel:SetJustifyH("LEFT")
+
+  f.pathBox = CreateFrame("EditBox", nil, f)
+  f.pathBox:SetPoint("BOTTOMLEFT", 12, 28)
+  f.pathBox:SetPoint("RIGHT", f, "RIGHT", -12, 0)
+  f.pathBox:SetHeight(18)
+  f.pathBox:SetAutoFocus(false)
+  f.pathBox:SetFontObject("GameFontHighlightSmall")
+  f.pathBox:SetTextInsets(4, 4, 0, 0)
+  local boxBG = f.pathBox:CreateTexture(nil, "BACKGROUND")
+  boxBG:SetAllPoints()
+  boxBG:SetColorTexture(1, 1, 1, 0.07)
+  -- select on click, and again whenever focus arrives: a player who clicks it wants all of it
+  f.pathBox:SetScript("OnMouseUp", function(self) self:HighlightText() self:SetFocus() end)
+  f.pathBox:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  f.pathBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  -- typing in it must not change the answer: whatever is typed, the path comes back
+  f.pathBox:SetScript("OnEnterPressed", function(self) self:SetText(J.AlbumPath()) self:HighlightText() end)
+
   f.foot = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   f.foot:SetPoint("BOTTOMLEFT", 12, 10)
   f.foot:SetPoint("RIGHT", f, "RIGHT", -12, 0)
@@ -169,6 +239,13 @@ function J.Refresh()
     elseif l.head then f.rows[i]:SetText(J.Head(l.head))
     else f.rows[i]:SetText(J.Line(l.entry)) end
   end
+
+  -- the copy box, every refresh, so `/memories wow` shows up without reopening the window
+  f.pathBox:SetText(J.AlbumPath())
+  f.pathBox:SetCursorPosition(0)
+  f.pathLabel:SetText(T.text("muted", J.AlbumPathWhole()
+    and "the album page - click to select, Ctrl+C to copy, paste into your browser"
+    or "the album page, inside your WoW version folder - /memories wow <that folder> to get the whole path"))
 
   if n == 0 then
     f.foot:SetText(T.text("muted",

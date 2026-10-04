@@ -116,7 +116,16 @@ local function set(key, on)
 end
 
 function ns.Slash(input)
-  local cmd, rest = tostring(input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
+  -- THE COMMAND IS LOWERCASED; THE ARGUMENT IS NOT (3 Oct 2026). It used to lower() the whole
+  -- line, which quietly ruined the two arguments that are a PERSON'S words rather than a keyword:
+  -- `/memories now Killed Baron Silverlaine` was stored as "killed baron silverlaine", and a
+  -- Windows path came back shouting in lower case. Found while adding `/memories wow`.
+  --
+  -- Keywords still compare in lower case, at the places that compare them - `set()` and the
+  -- numbers below - so "on LevelUp" keeps working.
+  local raw = tostring(input or "")
+  local cmd, rest = raw:match("^%s*(%S*)%s*(.-)%s*$")
+  cmd = cmd:lower()
 
   if cmd == "" then
     list(10)
@@ -130,7 +139,7 @@ function ns.Slash(input)
     else ns.Print("not this time (%s)", tostring(why)) end
 
   elseif cmd == "on" or cmd == "off" then
-    set(rest, cmd == "on")
+    set(rest:lower(), cmd == "on")
 
   elseif cmd == "loot" then
     local q = tonumber(rest)
@@ -187,6 +196,29 @@ function ns.Slash(input)
 
   elseif cmd == "journal" or cmd == "album" or cmd == "book" then
     if ns.J then ns.J.Toggle() else ns.Print("the journal is not loaded") end
+
+  -- WHERE THE ALBUM PAGE IS. An addon cannot know its own full path - there is no API for the
+  -- install folder and none for the version folder either - so the certain part is printed, and
+  -- `/memories wow <folder>` makes it whole and keeps it.
+  elseif cmd == "path" or cmd == "where" then
+    if not ns.J then ns.Print("the journal is not loaded") return end
+    ns.Print("the album page: " .. ns.J.AlbumPath())
+    if not ns.J.AlbumPathWhole() then
+      ns.Print("that is inside your WoW version folder. Paste it whole with:")
+      ns.Print([[  /memories wow C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
+      ns.Print("(whatever yours is called - it is the folder with Interface and WTF in it)")
+    end
+    ns.J.Show()
+
+  elseif cmd == "wow" then
+    if not ns.J then ns.Print("the journal is not loaded") return end
+    local set = ns.J.SetWow(rest)
+    if set then
+      ns.Print("WoW is at " .. set)
+      ns.Print("the album page: " .. ns.J.AlbumPath())
+    else
+      ns.Print("forgotten where WoW is - /memories wow <folder> to set it again")
+    end
 
   else
     ns.Print("%s", T.text("muted",

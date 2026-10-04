@@ -637,4 +637,67 @@ do
   for i = #log, 1, -1 do log[i] = nil end
 end
 
+
+H.section("where the album page is")
+-- Arn went looking for the page on disk and nothing in game said where. An addon cannot know its
+-- own full path - no API for the install folder, none for the version folder - so the certain tail
+-- is shown and the player may make it absolute once.
+do
+  local J, d = NS.J, _G.BiSMemoriesDB
+  d.wowPath = nil
+  H.eq(J.AlbumPath(), [[Interface\AddOns\BiSMemories\Album\BiSMemories-Album.html]],
+       "with nowhere set, the path is the part that is always true")
+  H.eq(J.AlbumPathWhole(), false, "and it says it is not the whole thing")
+
+  J.SetWow([[C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
+  H.eq(J.AlbumPath(),
+       [[C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BiSMemories\Album\BiSMemories-Album.html]],
+       "once told, it is the whole path")
+  H.eq(J.AlbumPathWhole(), true, "and it says so")
+
+  -- A TRAILING SLASH IS WHAT A PASTE FROM EXPLORER LOOKS LIKE, and a double slash breaks the paste
+  J.SetWow([[C:\Games\WoW\_classic_\]])
+  -- A LONG STRING, because "\I" is not an escape Lua knows and 5.1 eats the backslash silently -
+  -- this assertion spent one run searching for "_classic_Interface" and failing on code that was
+  -- correct. Any path written in a short string here is a trap.
+  H.eq(J.AlbumPath():find([[_classic_\Interface]], 1, true) ~= nil, true,
+       "a trailing slash does not become a double one")
+
+  -- BOTH GUARDS, SEPARATELY. SetWow trims and AlbumPath trims, so testing only through SetWow
+  -- means either one alone passes - mutating the trim out of AlbumPath left this green until the
+  -- saved value was set directly, the way an old saved file or a hand-edited one would hold it.
+  d.wowPath = [[C:\Games\WoW\_classic_\]]
+  H.eq(J.AlbumPath():find([[_classic_\Interface]], 1, true) ~= nil, true,
+       "a slash already in the saved file is trimmed when the path is built")
+
+  -- THE VERSION FOLDER IS NEVER GUESSED. "_classic_beta_" is today's name, not launch day's.
+  d.wowPath = nil
+  H.eq(J.AlbumPath():find("_classic") == nil, true, "no version folder is invented")
+
+  J.SetWow(nil)
+  H.eq(d.wowPath, nil, "and it can be forgotten again")
+end
+
+H.section("the argument keeps its capitals")
+-- The whole line used to be lowercased, which ruined the two arguments that are a person's words:
+-- a note, and a Windows path. Found while adding /memories wow.
+do
+  local d = _G.BiSMemoriesDB
+  NS.Slash([[wow C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
+  H.eq(d.wowPath, [[C:\Program Files (x86)\World of Warcraft\_classic_beta_]],
+       "a path typed with capitals is stored with them")
+  d.wowPath = nil
+
+  local before = #M.Log()
+  NS.Slash("now Killed Baron Silverlaine")
+  H.eq(#M.Log(), before + 1, "the manual shot still fires")
+  H.eq(M.Log()[1].detail, "Killed Baron Silverlaine", "and the note keeps the words as typed")
+
+  -- a keyword still matches however it is typed
+  NS.Slash("off LevelUp")
+  H.eq(d.levelup, false, "a switch still works in any case")
+  NS.Slash("on levelup")
+  H.eq(d.levelup, true, "and back on")
+end
+
 H.report()
