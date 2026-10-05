@@ -1,5 +1,15 @@
 # BiSMemories
 
+## Unreleased
+
+- **Fixed: we sent you to the wrong folder.** The album said your account folder is "a number and
+  a hash" and that there is "usually only one" of them. Both can be false: it may be a name like
+  `ARNOLD891`, and anyone with more than one WoW account has more than one folder - often with the
+  nearly-empty one listed first. Following our own instructions, those players opened a folder with
+  no `BiSMemories.lua` in it, which looks exactly like the addon having saved nothing. The page and
+  the README now say to open each folder until you find the one that **has** the file, and to take
+  the most recently changed if several do.
+
 ## 0.5.5
 
 - **Fixed: a jewelcrafter photographed every gem they cut.** Six pictures in ten minutes in Black
