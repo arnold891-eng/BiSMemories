@@ -1,6 +1,6 @@
 # BiSMemories
 
-## Unreleased
+## 0.5.5
 
 - **Fixed: a jewelcrafter photographed every gem they cut.** Six pictures in ten minutes in Black
   Temple, all gems — and they were not drops. Cutting a gem makes the client say *"You create:"*,
