@@ -52,7 +52,7 @@ fire("ADDON_LOADED", "BiSMemories")
 H.ok(type(_G.BiSMemoriesDB) == "table" and _G.BiSMemoriesDB.comm == true, "SavedVariables shaped with defaults on first load")
 
 H.section("embedded libs are canon (drift fences)")
-H.eq(_G.LibBiSComm.MINOR, 6, "LibBiSComm minor 6")
+H.eq(_G.LibBiSComm.MINOR, 7, "LibBiSComm minor 7")
 local function listed(rel) for _, f in ipairs(FILES) do if f == rel then return true end end return false end
 H.ok(listed("Libs/BiSTheme/Console.lua"), "TOC lists the Console embed")
 H.ok(listed("Libs/LibBiSComm-1.0/LibBiSComm-1.0.lua"), "TOC lists the comm embed")
@@ -69,6 +69,55 @@ H.section("the shared BiS channel")
 local lib = _G.LibBiSComm
 H.ok(lib._booted and lib:Enabled(), "comm booted and on")
 H.eq(lib.addons.BiSMemories, TOC_VERSION, "registered with the TOC version")
+
+-- A SECRET ARRIVING ON THE WIRE (4 Oct 2026). On this client CHAT_MSG_ADDON can hand a SECRET VALUE
+-- in any of its four arguments - seen in a dungeon, where the client hides chat. A secret is
+-- truthy, so `not msg` never caught one: the error came out of `msg .. "|"` inside split, or out of
+-- using the sender as a table key, and the lib's OnEvent does not pcall - so it reached the player
+-- as a red wall in the middle of a pull.
+--
+-- This addon shipped 0.5.1 for exactly this shape one layer up, in CHAT_MSG_LOOT. It was still here
+-- underneath, in the lib seven addons embed. Found by reading FojjiCore's dungeon journal, which
+-- guards its text AND its sender - the sender being the half nobody here had thought of.
+do
+  local secretMeta = {
+    __concat   = function() error("secret value: refused", 0) end,
+    __index    = function() error("secret value: refused", 0) end,
+    __tostring = function() error("secret value: refused", 0) end,
+    __lt       = function() error("secret value: refused", 0) end,
+  }
+  local function secret() return setmetatable({}, secretMeta) end
+  local realSecret = _G.issecretvalue
+  _G.issecretvalue = function(v) return getmetatable(v) == secretMeta end
+
+  local function peerCount()
+    local n = 0
+    for _ in pairs(lib.peers or {}) do n = n + 1 end
+    return n
+  end
+  local before = peerCount()
+
+  -- the lib must be ON for this to prove anything: a disabled lib returns on its first line and
+  -- every one of these would pass with the whole guard deleted
+  H.ok(lib:Enabled(), "the lib is on, so the guard is what is being tested")
+
+  for _, case in ipairs({
+    { "a secret sender",  lib.PREFIX, "1|X|HI",  "PARTY",  secret()    },
+    { "a secret message", lib.PREFIX, secret(),  "PARTY",  "Kumlance"  },
+    { "a secret channel", lib.PREFIX, "1|X|HI",  secret(), "Kumlance"  },
+    { "a secret prefix",  secret(),   "1|X|HI",  "PARTY",  "Kumlance"  },
+  }) do
+    local ok = pcall(lib.OnMessage, lib, case[2], case[3], case[4], case[5])
+    H.ok(ok, case[1] .. " is dropped, not thrown at the player")
+  end
+  H.eq(peerCount(), before, "and no peer is made out of one")
+
+  -- Short is the shared door: it takes UnitName() answers too, which also go secret in an instance
+  H.eq(lib.Short("Kumlance-Firemaw"), "Kumlance", "a real name still shortens")
+  H.eq(lib.Short(secret()), nil, "a secret one answers nil - we do not know who that is")
+
+  _G.issecretvalue = realSecret
+end
 
 H.section("the camera")
 -- The client's own screenshot call is the one thing this addon cannot fake, so the suite counts it.
