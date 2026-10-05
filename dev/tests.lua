@@ -562,6 +562,20 @@ do
        "nothing is fetched from the internet: it must work offline")
   H.ok(bytes(HERE .. "/../Album/README.txt") ~= nil, "with the instructions beside it")
 
+  -- THE ACCOUNT FOLDER IS NOT ALWAYS ONE (4 Oct 2026). The page said `<ACCOUNT>` is "a number and
+  -- a hash" and that there is "usually only one folder" - and both were wrong on the author's own
+  -- machine: two folders, the populated one called ARNOLD891, the number-and-hash one nearly
+  -- empty. Arn: "some people can have multiple accounts and run at the same time". Our own
+  -- instructions were sending those players into the wrong folder to find a file that is not
+  -- there, which reads as "the addon saved nothing".
+  local readme = bytes(HERE .. "/../Album/README.txt")
+  H.ok(page and page:find("only one folder", 1, true) == nil,
+       "the page no longer claims there is usually only one account folder")
+  H.ok(readme and readme:find("only one folder", 1, true) == nil,
+       "and neither does the README")
+  H.ok(readme and readme:find("more than one", 1, true) ~= nil,
+       "they say to look for the folder that HAS the file instead")
+
   -- IT REMEMBERS THE NOTES, AND SAYS SO. The saved file is the one nobody finds twice - it is in
   -- WTF, not AddOns - so the page keeps the notes between visits and only asks for the pictures.
   -- The "forget" is not decoration: notes kept silently go stale, and a picture taken after the

@@ -48,8 +48,13 @@ remembers about you. Click "Add the addon's notes" and pick:
 
     C:\Program Files (x86)\World of Warcraft\_classic_beta_\WTF\Account\<ACCOUNT>\SavedVariables\BiSMemories.lua
 
-<ACCOUNT> is a number and a hash - something like 213614#1 - not your email address. Open
-WTF\Account and there is usually only one folder in there; go into that one.
+<ACCOUNT> is whatever WoW called your account folder: a number and a hash like 213614#1, or a
+name like ARNOLD891. It is never your email address.
+
+THERE MAY BE MORE THAN ONE, and the extra ones are often nearly empty. People with several
+accounts have several folders, and anyone who plays two at the same time certainly does. Open each
+one until you find the one that actually contains SavedVariables\BiSMemories.lua - that is yours.
+If more than one has it, take the one changed most recently.
 
 There is a second copy further in, under your realm and character:
 
