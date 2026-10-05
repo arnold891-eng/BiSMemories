@@ -1,5 +1,16 @@
 # BiSMemories
 
+## Unreleased
+
+- **Fixed: a jewelcrafter photographed every gem they cut.** Six pictures in ten minutes in Black
+  Temple, all gems — and they were not drops. Cutting a gem makes the client say *"You create:"*,
+  which this addon could not tell apart from *"You receive loot:"*, so every epic cut was an epic
+  looted. A gem goes in a socket and is never looked at again; it is not a memory now, however it
+  arrives. `/memories gems` puts them back if you disagree.
+
+  Crafting an epic that is **not** a gem — a weapon, a bolt of Spellcloth — is still a memory. The
+  fix is aimed at the gem, not at the word "create".
+
 ## 0.5.4
 
 - **The album remembers your captions.** Load the addon's saved file once and the next time you

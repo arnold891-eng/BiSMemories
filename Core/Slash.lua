@@ -7,6 +7,8 @@
       /memories on|off <thing>  levelup, boss, loot, achievement, death, duel
       /memories loot <2-5>      the quality worth a picture: 4 is epic, 3 is rare.
                                 YOUR loot only - plus anyone's legendary, whoever won it
+      /memories gems            gems on or off. Off: cutting one is "You create:" to the client,
+                                so a jewelcrafter photographed every gem they cut mid-raid
       /memories gap <seconds>   the least time between two shots
       /memories sound           the click on or off
       /memories clear           forget the notes (never touches the pictures)
@@ -58,8 +60,8 @@ local function status()
     on[#on + 1] = (d[t.key] and T.text("good", t.key) or T.text("muted", t.key))
   end
   ns.Print("version %s - %s", ns.VERSION, table.concat(on, " "))
-  ns.Print("loot from quality %d, at most one shot every %ds, %d note(s) kept",
-    d.lootQuality or 4, d.gap or 8, #M.Log())
+  ns.Print("loot from quality %d%s, at most one shot every %ds, %d note(s) kept",
+    d.lootQuality or 4, d.gems and "" or " (no gems)", d.gap or 8, #M.Log())
   local last = tonumber(d.candidLast) or 0
   if d.candid then
     ns.Print("candid: %s", last == 0 and T.text("muted", "none yet - one is due this week")
@@ -149,6 +151,14 @@ function ns.Slash(input)
     else
       ns.Print("a number 0-5, where 4 is epic and 3 is rare")
     end
+
+  -- GEMS. Off by default since 4 Oct: cutting one fires the client's "You create:" line, so a
+  -- jewelcrafter sitting down mid-raid photographed every epic they cut.
+  elseif cmd == "gems" then
+    local d = db()
+    d.gems = not d.gems
+    ns.Print("gems are %s", d.gems and T.text("good", "worth a picture")
+      or T.text("muted", "not a memory - they go in a socket and are never seen again"))
 
   elseif cmd == "gap" then
     local s = tonumber(rest)

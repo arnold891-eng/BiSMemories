@@ -121,9 +121,51 @@ _G.GetItemInfo = function(link)
     local q = tonumber(link:match("QUALITY(%d)")) or 1
     return "Item", link, q
 end
+_G.GetItemInfoInstant = function(link)
+    -- classID 3 is Gem on every client; the harness marks one with GEM in the link
+    return 1, "Item", "Sub", "", nil, link:match("GEM") and 3 or 4
+end
 H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY4|h[Thunderfury]|h") ~= nil, "epic loot is")
 H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY2|h[Bent Stick]|h") == nil, "a green is not")
 H.ok(M.LootWorthy("Kumlust says hello") == nil, "a line with no item is not")
+
+-- A GEM IS A COMPONENT, NOT A KEEPSAKE (4 Oct 2026). Arn in Black Temple: "bis memories tbc doing
+-- it on gems too much" - six pictures in ten minutes. They were not drops. The client's
+-- LOOT_ITEM_CREATED_SELF is "You create: %s.", so CUTTING a gem loots it, and an epic cut is an
+-- epic: he sat down mid-raid, cut three, cut three more, and was photographed every time.
+H.ok(M.LootWorthy("You create: |Hitem:QUALITY4GEM|h[Brilliant Lioneye]|h.") == nil,
+     "a gem you cut yourself is not a memory - the exact Black Temple case")
+H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY4GEM|h[Shadowsong Amethyst]|h.") == nil,
+     "and neither is one that drops")
+H.ok(M.LootWorthy("Kingkroo receives loot: |Hitem:QUALITY5GEM|h[Orange Thing]|h.") == nil,
+     "a gem is not a memory even at legendary - the switch is about gems, not about quality")
+
+-- WHAT MUST SURVIVE. Cutting a gem is noise; crafting an epic is not, and the fix is aimed at the
+-- gem rather than at "You create:" so a crafted weapon still gets its picture.
+H.ok(M.LootWorthy("You create: |Hitem:QUALITY4|h[Spellcloth]|h.") ~= nil,
+     "crafting an epic that is NOT a gem is still a memory")
+
+_G.BiSMemoriesDB.gems = true
+H.ok(M.LootWorthy("You receive loot: |Hitem:QUALITY4GEM|h[Shadowsong Amethyst]|h.") ~= nil,
+     "unless you ask for them back")
+_G.BiSMemoriesDB.gems = false
+
+-- A CLIENT WITH NO INSTANT LOOKUP falls back to the type NAME, which is English-only and so is
+-- never asked first - the same reason LootIsMine reads the client's own strings instead of "You".
+do
+  local realInstant = _G.GetItemInfoInstant
+  local realInfo = _G.GetItemInfo
+  _G.GetItemInfoInstant = nil
+  _G.GetItemInfo = function(link)
+    local q = tonumber(link:match("QUALITY(%d)")) or 1
+    return "Item", link, q, 70, 70, link:match("GEM") and "Gem" or "Weapon"
+  end
+  H.ok(M.LootWorthy("You create: |Hitem:QUALITY4GEM|h[Brilliant Lioneye]|h.") == nil,
+       "no instant lookup: the type name still catches the gem")
+  H.ok(M.LootWorthy("You create: |Hitem:QUALITY4|h[Spellcloth]|h.") ~= nil,
+       "and still lets the crafted epic through")
+  _G.GetItemInfoInstant, _G.GetItemInfo = realInstant, realInfo
+end
 
 -- SOMEBODY ELSE'S PURPLE IS NOT A MEMORY. CHAT_MSG_LOOT carries the whole raid's, and Arn watched
 -- it fire on every epic in a 25-man: "otherwise it takes for all purple loot". Mine at the

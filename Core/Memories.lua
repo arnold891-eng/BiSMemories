@@ -42,6 +42,7 @@ local DEFAULTS = {
   candidEvery = 7 * 24 * 60 * 60,   -- a week, in seconds
   candidWindow = 45 * 60,           -- taken at a random moment inside this much play, not on login
   lootQuality = 4,    -- 4 = epic. 3 = rare, if you want more of them
+  gems = false,       -- a gem is a component, not a keepsake (4 Oct 2026, Black Temple)
 }
 for _, t in ipairs(TRIGGERS) do DEFAULTS[t.key] = t.on end
 for k, v in pairs(DEFAULTS) do ns.DEFAULTS[k] = v end
@@ -236,6 +237,40 @@ function M.LootIsMine(msg)
   return false
 end
 
+--- A GEM IS A COMPONENT, NOT A KEEPSAKE (4 Oct 2026).
+---
+--- Arn, in Black Temple: "bis memories tbc doing it on gems too much" - six pictures in ten
+--- minutes, every one of them a gem. They were not drops. `LOOT_ITEM_CREATED_SELF` is "You create:
+--- %s.", so a jewelcrafter CUTTING a gem loots it as far as this addon is concerned, and an epic
+--- cut is an epic. He sat down mid-raid, cut three, cut three more, and got photographed each time.
+---
+--- A gem goes in a socket and is never looked at again. Nobody opens an album a year later to see
+--- the Shadowsong Amethyst they put in a helm. So a gem is not a memory however it arrives - cut,
+--- dropped, or bought - and the switch is there for the one person who disagrees.
+---
+--- Asked by CLASS ID and not by the word "Gem", for the same reason `LootIsMine` reads the client's
+--- own strings: the type NAME is translated and the number is not. GetItemInfoInstant answers from
+--- the id without a server round trip, so a gem cut in a raid is judged the moment it is made,
+--- which is exactly when the cache would otherwise be empty.
+local function isGem(link)
+  local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+  if instant then
+    local ok, _, _, _, _, _, classID = pcall(instant, link)
+    if ok and type(classID) == "number" then
+      return classID == ((Enum and Enum.ItemClass and Enum.ItemClass.Gem) or 3)
+    end
+  end
+  -- the English type name is the floor, not the answer: better than nothing on a client with no
+  -- instant lookup, and wrong on a French one, which is why it is never asked first
+  local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if getInfo then
+    local ok, _, _, _, _, _, itemType = pcall(getInfo, link)
+    if ok and itemType == "Gem" then return true end
+  end
+  return false
+end
+M.IsGem = isGem
+
 --- Is this loot line worth a picture? MINE, at the quality you set - plus ANYONE'S legendary,
 --- because an orange dropping is the room's memory and not just the winner's.
 function M.LootWorthy(msg)
@@ -246,6 +281,9 @@ function M.LootWorthy(msg)
   if not getInfo then return nil end
   local ok, _, _, quality = pcall(getInfo, link)
   if not ok or type(quality) ~= "number" then return nil end
+  -- BEFORE the legendary line, deliberately: a legendary gem would still be a gem, and the point
+  -- of the switch is that gems are not what anyone opens an album for
+  if not db().gems and isGem(link) then return nil end
   if quality >= 5 then return link, quality end      -- a legendary is everyone's news
   if not M.LootIsMine(msg) then return nil end
   if quality < (db().lootQuality or 4) then return nil end
