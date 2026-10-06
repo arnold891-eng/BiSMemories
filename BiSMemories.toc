@@ -1,5 +1,6 @@
 ## Interface: 16001, 20506
 ## Title: |cffb980ffBiS|r Memories
+## Category: |cffb980ffBiS>|rAddons
 ## Notes: Takes a screenshot when something worth remembering happens, and keeps a note of what it was.
 ## Author: Arn
 ## Version: 0.5.5
