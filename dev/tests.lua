@@ -827,4 +827,166 @@ do
   H.eq(d.levelup, true, "and back on")
 end
 
+-- ---------------------------------------------------------------- does every label FIT its window
+-- (6 Oct 2026, ported from BiSTools) Arn: "make a check for cut offs or overflows that happens
+-- often". Every shown label inside a window is measured where it actually starts - following what
+-- it is pinned to: the window's edge, a frame, an icon, another label - and must end inside the
+-- window. A label pinned LEFT and RIGHT gets exactly the room between its anchors; the client cuts
+-- anything longer with "...", so that room is what it is measured against. It may only wrap when
+-- the code asked for word wrap AND gave it a height - nothing in this addon does, so nothing skips.
+--
+-- WIDTH, CALIBRATED ON THE CLIENT, NOT GUESSED: capitals and digits 0.75 px per point ("NEED MATS",
+-- BiSCraft, 11 Sep), lowercase 0.55 and spaces/punctuation 0.3 (Arn's BiSTools screenshot, 6 Oct).
+-- The mock's own GetStringWidth (0.6 flat) stays as it is: addon code trims by it.
+-- Escapes the client never draws take no room: colour |c..|r, and item links' |H...|h ... |h
+-- (only the [Name] shows). Inline |T..:w:h|t textures take their declared width.
+H.section("does every label fit its window")
+local function realWidth(fs)
+  local t, tex = tostring(fs._text or ""), 0
+  t = t:gsub("|T[^|]-:(%d+):%d+[^|]*|t", function(w) tex = tex + tonumber(w) return "" end)
+  t = t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("|h", "")
+  local size, px = fs._size or 9, 0
+  for ch in t:gmatch(".") do
+    if ch:match("[%u%d]") then px = px + 0.75 elseif ch:match("%l") then px = px + 0.55 else px = px + 0.3 end
+  end
+  return px * size + tex
+end
+local function plain(t) return (strip(t):gsub("|H.-|h", ""):gsub("|h", "")) end
+local function isLabel(r) return r._type == nil and r._size ~= nil and r._text ~= nil end
+local function insideShown(r, root)
+  local p = r._parent
+  while p do
+    if p._shown == false then return false end
+    if p == root then return true end
+    p = p._parent
+  end
+  return false
+end
+-- left and right edge in px from the window's left, following the anchor chain. Third answer: the
+-- region is BOUNDED (pinned on both sides). nil when a label cannot be followed; a frame that
+-- cannot be followed spans the window, as BiSTools does.
+local function hEdges(r, root, depth)
+  if r == root then return 0, root._w end
+  depth = depth or 0
+  local function span() if isLabel(r) then return nil end return 0, root._w end
+  if depth > 8 then return span() end
+  if r._all then return hEdges(r._parent, root, depth + 1) end
+  local L, R, C
+  for _, p in ipairs(r._points or {}) do
+    local rel = p.rel or r._parent
+    local rl, rr = hEdges(rel, root, depth + 1)
+    if not rl then return span() end
+    local rp = p.relPoint or p.point
+    local ax = rp:find("LEFT") and rl or rp:find("RIGHT") and rr or (rl + rr) / 2
+    if p.point:find("LEFT") then L = ax + p.x
+    elseif p.point:find("RIGHT") then R = ax + p.x
+    else C = ax + p.x end
+  end
+  local w = isLabel(r) and realWidth(r) or (r._w or 0)
+  if L and R then return L, R, true end
+  if L then return L, L + w end
+  if R then return R - w, R end
+  if C then return C - w / 2, C + w / 2 end
+  return span()
+end
+local function fitsIn(root, what)
+  local width, bad, measured = root._w, {}, 0
+  for _, fs in ipairs(H.labels) do
+    if fs._shown ~= false and fs._text ~= "" and insideShown(fs, root) then
+      local l, r, bounded = hEdges(fs, root)
+      if l then
+        measured = measured + 1
+        local need = realWidth(fs)
+        local wraps = bounded and fs._wrap == true and fs._h
+        if l < -1 or r > width + 1 then
+          bad[#bad + 1] = ("%q needs %d px from %d, the window is %d"):format(plain(fs._text), need, l, width)
+        elseif bounded and not wraps and l + need > r + 1 then
+          bad[#bad + 1] = ("%q needs %d px from %d, its anchors give it %d (cut with ...)")
+            :format(plain(fs._text), need, l, r - l)
+        end
+      end
+    end
+  end
+  H.say(("  (fit) %s: %d label(s) measured"):format(what, measured))
+  H.ok(measured > 0, what .. ": the fit check measured something (a check that sees nothing proves nothing)")
+  H.ok(#bad == 0, what .. ": every label fits - " .. table.concat(bad, "; "))
+end
+
+do
+  local J, d = NS.J, NS.DB()
+  local log = M.Log()
+  for i = #log, 1, -1 do log[i] = nil end
+  d.wowPath = nil
+  J.offset = 0
+
+  -- EMPTY: the window most people see on this client, with the long "tell me your folder" label
+  J.Show()
+  fitsIn(J.frame, "the journal, empty")
+
+  -- POPULATED, ordinary night
+  local sat8pm = os.time({ year = 2026, month = 9, day = 19, hour = 20, min = 4, sec = 0 })
+  for i, e in ipairs({
+    { reason = "boss", detail = "Moroes", zone = "Karazhan" },
+    { reason = "levelup", detail = "level 70", zone = "Karazhan" },
+  }) do
+    e.at, e.with = sat8pm + i * 600, { "Kumlance" }
+    table.insert(log, 1, e)
+  end
+  J.Refresh()
+  fitsIn(J.frame, "the journal, a few memories")
+
+  -- THE LONGEST REAL ONES. Every one of these is what the addon itself writes: a death's detail
+  -- IS the zone and subzone, an exalted memory keeps the client's whole sentence, a loot memory is
+  -- the item link, a duel names a Forever player with a surname. More than a page, so the footer
+  -- counts and the path is the whole one.
+  local zone = "Blackrock Depths - The Grim Guzzler"
+  local party = { "Kumlance", "Kumlust Surname", "Dps1", "Dps2" }
+  for i, e in ipairs({
+    { reason = "death", detail = zone },
+    { reason = "exalted", detail = "You are now Exalted with Thorium Brotherhood." },
+    { reason = "loot", detail = "|cffff8000|Hitem:19019::::::::60:::::|h[Thunderfury, Blessed Blade of the Windseeker]|h|r" },
+    { reason = "duel", detail = "beat Kumlance Surname" },
+    { reason = "boss", detail = "Emperor Dagran Thaurissan" },
+    { reason = "achievement", detail = "Molten Core and Blackwing Lair" },
+    { reason = "candid", detail = "just a week going by" },
+  }) do
+    e.at, e.zone, e.with = sat8pm + 7200 + i * 600, zone, party
+    table.insert(log, 1, e)
+  end
+  for i = 1, 6 do
+    table.insert(log, 1, { at = sat8pm + 14400 + i * 60, reason = "levelup", detail = "level " .. (50 + i),
+                           zone = zone, with = party })
+  end
+  J.SetWow([[C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
+  J.Refresh()
+  fitsIn(J.frame, "the journal, the longest real memories")
+  J.Scroll(99)
+  fitsIn(J.frame, "the journal, scrolled to the oldest")
+
+  -- WHERE AND WHO MOVED TO THE TOOLTIP to make those rows fit, so it must still be there - through
+  -- the row's own hover, the path the mouse takes, not by calling the formatter by hand.
+  local tip, realSetText, realAdd = {}, GameTooltip.SetText, GameTooltip.AddLine
+  GameTooltip.SetText = function(_, t) tip[#tip + 1] = strip(t) end
+  GameTooltip.AddLine = function(_, t) tip[#tip + 1] = strip(t) end
+  local row
+  for i = 1, #J.frame.rows do
+    if strip(J.frame.rows[i]._text):find("  death  ", 1, true) then row = i end
+  end
+  H.ok(row ~= nil, "the death row is on the page")
+  H.ok(not strip(J.frame.rows[row or 1]._text):find("with 4", 1, true), "the row no longer carries the count")
+  J.frame.hits[row or 1]:Fire("OnEnter")
+  local said = table.concat(tip, " | ")
+  H.ok(said:find(zone, 1, true) and said:find("with 4", 1, true), "hovering it says where and who with", said)
+  -- a heading is not a memory: hovering it says nothing rather than the last row's tooltip
+  tip = {}
+  J.Scroll(-99)
+  J.frame.hits[1]:Fire("OnEnter")
+  H.eq(#tip, 0, "hovering a night's heading shows no memory's tooltip")
+  GameTooltip.SetText, GameTooltip.AddLine = realSetText, realAdd
+
+  J.SetWow(nil)
+  J.Hide()
+  for i = #log, 1, -1 do log[i] = nil end
+end
+
 H.report()

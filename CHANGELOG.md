@@ -9,6 +9,10 @@
   no `BiSMemories.lua` in it, which looks exactly like the addon having saved nothing. The page and
   the README now say to open each folder until you find the one that **has** the file, and to take
   the most recently changed if several do.
+- **Fixed: journal rows ran off the window.** A long memory - a death in "Blackrock Depths - The
+  Grim Guzzler", an exalted line, a legendary's full name - was cut with "..." mid-row. A row is now
+  when, why and what; hover it for where, how many were with you, and the picture's file name. The
+  empty-journal footer was 5 px too long and is one word shorter.
 
 ## 0.5.5
 
