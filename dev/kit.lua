@@ -26,11 +26,38 @@ local function autoMethods(t)
     end })
 end
 
-local function newTexture()
-    local t = { _shown = true }
-    function t:SetAllPoints() end
-    function t:SetPoint() end
-    function t:ClearAllPoints() end
+-- One SetPoint, kept the way the client reads it: the 2-arg/number form is relative to the
+-- PARENT, same point on both. Labels and textures share it so the fit check walks one shape.
+local function keepPoint(self, point, a, b, c, d)
+    self._points = self._points or {}
+    if type(a) == "table" then
+        table.insert(self._points, { point = point, rel = a, relPoint = b or point, x = c or 0, y = d or 0 })
+    else
+        table.insert(self._points, { point = point, rel = nil, relPoint = point, x = a or 0, y = b or 0 })
+    end
+end
+
+-- Size a FontString gets from its TEMPLATE. The client's GameFontNormal is 12 pt and the Small
+-- ones 10 - the mock's flat 9 drew every label smaller than the player sees it, which is the
+-- kind side of wrong. Unknown or no template keeps 9, as before.
+H.TEMPLATE_SIZE = {
+    GameFontNormal = 12, GameFontHighlight = 12, GameFontDisable = 12,
+    GameFontNormalSmall = 10, GameFontHighlightSmall = 10, GameFontDisableSmall = 10,
+    GameFontNormalLarge = 16, GameFontHighlightLarge = 16,
+}
+
+-- EVERY LABEL, KEPT (6 Oct 2026, ported from BiSTools). Each knows its parent (`_parent`) and
+-- every point it was pinned by (`_points`), so the fit check in tests.lua can say where it
+-- STARTS and whether it ends inside its window.
+H.labels = {}
+
+local function newTexture(owner)
+    local t = { _shown = true, _parent = owner }
+    -- size and anchor REMEMBERED: a label pinned beside an icon starts where the icon ends
+    function t:SetAllPoints() self._all = true end
+    function t:SetPoint(...) keepPoint(self, ...) end
+    function t:ClearAllPoints() self._points = {} self._all = nil end
+    function t:GetParent() return self._parent end
     function t:SetWidth(w) self._w = w end
     function t:SetHeight(h) self._h = h end
     function t:SetSize(w, h) self._w, self._h = w, h end
@@ -59,18 +86,12 @@ local function newTexture()
     return autoMethods(t)
 end
 
-local function newFontString(owner)
-    local f = { _text = "", _shown = true, _alpha = 1, _size = 9, _parent = owner }
+local function newFontString(owner, template)
+    local f = { _text = "", _shown = true, _alpha = 1, _size = H.TEMPLATE_SIZE[template] or 9, _parent = owner }
+    H.labels[#H.labels + 1] = f
     function f:SetText(v) self._text = tostring(v or "") end
     function f:GetText() return self._text end
-    function f:SetPoint(point, a, b, c, d)
-        self._points = self._points or {}
-        if type(a) == "table" then
-            table.insert(self._points, { point = point, rel = a, relPoint = b, x = c or 0, y = d or 0 })
-        else
-            table.insert(self._points, { point = point, rel = nil, relPoint = point, x = a or 0, y = b or 0 })
-        end
-    end
+    function f:SetPoint(...) keepPoint(self, ...) end
     function f:OffsetFor(point)
         for _, p in ipairs(self._points or {}) do
             if p.point == point then return p.x, p.y end
@@ -80,7 +101,6 @@ local function newFontString(owner)
     function f:SetWidth(w) self._w = w end
     function f:SetHeight(h) self._h = h end
     function f:SetJustifyH() end
-    function f:SetWordWrap() end
     function f:SetAlpha(a) self._alpha = a end
     function f:GetAlpha() return self._alpha end
     function f:GetParent() return self._parent end
@@ -107,8 +127,12 @@ local function newFontString(owner)
         self._font, self._size = path, size
     end
     function f:GetFont() return self._font, self._size end
-    function f:SetFontObject(o) self._fontObject = o; self._font = self._font or "Fonts\\FRIZQT__.TTF" end
-    function f:SetWordWrap() end
+    function f:SetFontObject(o)
+        self._fontObject = o; self._font = self._font or "Fonts\\FRIZQT__.TTF"
+        if H.TEMPLATE_SIZE[o] then self._size = H.TEMPLATE_SIZE[o] end
+    end
+    -- remembered: the fit check lets a label wrap only when the code asked for it AND gave it a width
+    function f:SetWordWrap(v) self._wrap = v and true or false end
     function f:Show() self._shown = true end
     function f:Hide() self._shown = false end
     function f:IsShown() return self._shown end
@@ -191,8 +215,8 @@ local function newFrame(ftype, name, parent)
         end
         return true
     end
-    function fr:CreateTexture() local t = newTexture(); self._regions = self._regions or {}; table.insert(self._regions, t); return t end
-    function fr:CreateFontString() local f = newFontString(self); self._regions = self._regions or {}; table.insert(self._regions, f); return f end
+    function fr:CreateTexture() local t = newTexture(self); self._regions = self._regions or {}; table.insert(self._regions, t); return t end
+    function fr:CreateFontString(_, _, template) local f = newFontString(self, template); self._regions = self._regions or {}; table.insert(self._regions, f); return f end
     function fr:SetScript(k, fn) self._scripts[k] = fn end
     function fr:GetScript(k) return self._scripts[k] end
     function fr:HookScript(k, fn) self._scripts["hook_" .. k] = fn end
@@ -286,6 +310,9 @@ H.say = realprint
 _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 _G.tinsert = table.insert
 _G.time = os.time
+-- the client has `date` (census: it answers "Oct  1 2026"). Without it every journal row printed a
+-- bare epoch number, so the fit check was measuring text no player ever sees.
+_G.date = os.date
 H.clock = 1000
 _G.GetTime = function() return H.clock end
 _G.GetCursorPosition = function() return 300, 400 end

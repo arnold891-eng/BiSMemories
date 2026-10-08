@@ -40,8 +40,6 @@ local function when(at)
   return date and date("%d %b %H:%M", at) or tostring(at)
 end
 
---- One entry as a line of text. Deliberately the same shape as the chat listing in Slash.lua -
---- two formatters that drift are two things to fix when a field is added.
 --- Where the album page is, as far as this addon can honestly say.
 ---
 --- The tail is certain - every WoW install puts an addon in the same place relative to its own
@@ -80,14 +78,36 @@ function J.SetWow(path)
     return d.wowPath
 end
 
+--- One entry as a row: when, why, what. WHERE AND WHO ARE IN THE TOOLTIP (6 Oct 2026). The row
+--- used to carry the zone and ", with 4" too, and a real one - a death in "Blackrock Depths - The
+--- Grim Guzzler", whose detail IS that zone - needed 531 px of a 416 px row; the client cut it
+--- with "...". The night's heading already names the place, and a count is a caption: one row,
+--- one label, the rest on hover. The chat listing (Slash.lua) keeps the long form - chat wraps.
 function J.Line(e)
   if type(e) ~= "table" then return "" end
-  local who = (type(e.with) == "table" and #e.with > 0) and (", with " .. #e.with) or ""
-  return ("%s  %s  %s%s"):format(
+  return ("%s  %s  %s"):format(
     T.text("muted", when(e.at)),
     T.text("accent", e.reason or "?"),
-    tostring(e.detail or ""),
-    T.text("muted", "  " .. tostring(e.zone or "?") .. who))
+    tostring(e.detail or ""))
+end
+
+--- What hovering a row says: where, who with, which picture on disk. Returns the lines, so a test
+--- can ask without a tooltip.
+function J.TipLines(e)
+  if type(e) ~= "table" then return {} end
+  local out = { tostring(e.zone or "?") }
+  if type(e.with) == "table" and #e.with > 0 then out[#out + 1] = "with " .. #e.with end
+  if e.file then out[#out + 1] = tostring(e.file) end
+  return out
+end
+
+function J.Tip(owner, e)
+  if not (GameTooltip and type(e) == "table") then return end
+  local lines = J.TipLines(e)
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:SetText(lines[1])
+  for i = 2, #lines do GameTooltip:AddLine(T.text("muted", lines[i])) end
+  GameTooltip:Show()
 end
 
 --- The log as LINES: a heading for each raid night, then that night's memories under it.
@@ -160,7 +180,7 @@ local function build()
   close:SetPoint("TOPRIGHT", -4, -4)
   close:SetScript("OnClick", function() J.Hide() end)
 
-  f.rows = {}
+  f.rows, f.hits = {}, {}
   for i = 1, ROWS do
     local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetPoint("TOPLEFT", 12, -34 - (i - 1) * 20)
@@ -168,6 +188,18 @@ local function build()
     fs:SetJustifyH("LEFT")
     if fs.SetWordWrap then fs:SetWordWrap(false) end
     f.rows[i] = fs
+    -- the hover patch for the row's tooltip. A child under the mouse would swallow the window's
+    -- drag, so it hands the drag on; the wheel is not enabled here, so it falls through to f.
+    local hit = CreateFrame("Button", nil, f)
+    hit:SetPoint("TOPLEFT", 12, -32 - (i - 1) * 20)
+    hit:SetPoint("RIGHT", f, "RIGHT", -12, 0)
+    hit:SetHeight(20)
+    hit:RegisterForDrag("LeftButton")
+    hit:SetScript("OnDragStart", function() f:StartMoving() end)
+    hit:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
+    hit:SetScript("OnEnter", function(self) J.Tip(self, self.entry) end)
+    hit:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    f.hits[i] = hit
   end
 
   -- WHERE THE ALBUM IS, IN A BOX YOU CAN COPY (3 Oct 2026). Arn, having gone looking for it:
@@ -239,6 +271,7 @@ function J.Refresh()
     -- NEWEST FIRST: the log is kept newest-first already (Memories.lua inserts at 1), so the
     -- offset counts down the page rather than up from the end
     local l = lines[i + J.offset]
+    f.hits[i].entry = l and l.entry or nil
     if not l then f.rows[i]:SetText("")
     elseif l.head then f.rows[i]:SetText(J.Head(l.head))
     else f.rows[i]:SetText(J.Line(l.entry)) end
@@ -256,7 +289,7 @@ function J.Refresh()
 
   if n == 0 then
     f.foot:SetText(T.text("muted",
-      "nothing yet today. It fires on levelling, bosses, rare loot, achievements and dying."))
+      "nothing yet today. It fires on levels, bosses, rare loot, achievements and dying."))
   elseif #lines > ROWS then
     f.foot:SetText(T.text("muted", ("%d of %d kept - wheel to scroll")
       :format(math.min(n, J.offset + ROWS), n)))
