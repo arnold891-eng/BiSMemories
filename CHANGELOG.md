@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Shared messaging library updated (LibBiSComm minor 10): after a boss, when the game lifts its chat lockdown, BiS addons say hello again so group lists stay current; it respects a realm that blocks addon messages, picks the raid channel only when the game confirms you are in a raid, and ignores anyone flooding it.
+
 - **Fixed: we sent you to the wrong folder.** The album said your account folder is "a number and
   a hash" and that there is "usually only one" of them. Both can be false: it may be a name like
   `ARNOLD891`, and anyone with more than one WoW account has more than one folder - often with the
