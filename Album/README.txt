@@ -98,5 +98,5 @@ THINGS WORTH KNOWING
   from the last few minutes of play has no caption yet - reload the game and it will.
 
 
-/memories journal in game shows the same notes as a list, without the pictures - an addon cannot
+/bism journal in game shows the same notes as a list, without the pictures - an addon cannot
 read your Screenshots folder or draw a .jpg, which is exactly why this page exists.

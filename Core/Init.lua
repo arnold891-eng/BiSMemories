@@ -7,7 +7,7 @@
     * ns.Print  one chat line with the addon's name in the accent colour
     * BiSMemoriesDB SavedVariables with defaults filled on ADDON_LOADED
     * the shared BiS channel (LibBiSComm): registered, booted, its off switch remembered
-    * /memories - says hello: version, comm on/off, peers. Replace it with the real addon.
+    * /bism (and /memories) - says hello: version, comm on/off, peers. Replace it with the real addon.
 ]]
 local ADDON, ns = ...
 
@@ -126,7 +126,10 @@ f:SetScript("OnEvent", function(_, event, name)
   end
 end)
 
-SLASH_BISMEMORIES1 = "/memories"
+-- /bism FIRST (Arn, 12 Oct 2026: "we rename all the old ones to keep it consistent") - the family's
+-- /bis* commands: /bish, /bist, /bisg, /bism. /memories stays as an alias so no macro or habit breaks.
+SLASH_BISMEMORIES1 = "/bism"
+SLASH_BISMEMORIES2 = "/memories"
 SlashCmdList.BISMEMORIES = function(input)
   -- Core/Slash.lua loads after this file and owns the real commands; if it ever fails to load,
   -- the addon still answers rather than throwing a nil call at whoever typed it.

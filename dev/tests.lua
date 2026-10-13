@@ -7,7 +7,7 @@ local FILES = H.TOC(ROOT, "BiSMemories.toc")
 
 -- every global this addon may create; anything else is a leak and a red test
 local ALLOWED = {
-    BiSMemoriesDB = true, SLASH_BISMEMORIES1 = true,
+    BiSMemoriesDB = true, SLASH_BISMEMORIES1 = true, SLASH_BISMEMORIES2 = true,
     HARNESS = true, print = true, BiSTheme = true, LibBiSComm = true, SLASH_BISCOMM1 = true,
 }
 local function Load()
@@ -268,9 +268,73 @@ H.eq(M.Log()[1].detail, "note 5", "newest first")
 H.ok(rawequal(M.Log(), _G.BiSMemoriesDB.log), "and lives in SavedVariables, so it survives a logout")
 _G.BiSMemoriesDB.keep = 250
 
-H.section("/memories")
+H.section("/bism (and /memories)")
 H.ok(type(_G.SlashCmdList.BISMEMORIES) == "function", "slash registered")
-H.eq(_G.SLASH_BISMEMORIES1, "/memories", "as /memories")
+-- /bism IS THE NAME (Arn, 12 Oct 2026): the family's /bis* commands - /bish, /bist, /bisg, /bism.
+-- /memories stays an alias so nobody's macros or habits break.
+H.eq(_G.SLASH_BISMEMORIES1, "/bism", "as /bism, first")
+H.eq(_G.SLASH_BISMEMORIES2, "/memories", "and /memories still registered after it")
+do
+    -- The client's way of finding a handler: walk SlashCmdList, compare the typed word to every
+    -- SLASH_<KEY>n, case-insensitive. Not a table lookup - so an alias registered under the wrong
+    -- key, or not at all, fails here the way it would at the keyboard.
+    local function typed(line)
+        local word, rest = line:match("^(%S+)%s*(.-)$")
+        for key, fn in pairs(_G.SlashCmdList) do
+            local i = 1
+            while _G["SLASH_" .. key .. i] do
+                if _G["SLASH_" .. key .. i]:lower() == word:lower() then return key, fn, rest end
+                i = i + 1
+            end
+        end
+    end
+    local k1, f1 = typed("/bism status")
+    local k2, f2 = typed("/memories status")
+    H.eq(k1, "BISMEMORIES", "/bism reaches the addon")
+    H.ok(f1 ~= nil and rawequal(f1, f2), "/memories reaches the very same handler", tostring(k2))
+    local _, _, rest = typed("/MEMORIES now Hello There")
+    H.eq(rest, "now Hello There", "the alias passes its words through untouched")
+
+    said = {}
+    _G.SlashCmdList.BISMEMORIES("help")
+    local help = table.concat(said, " ")
+    H.ok(help:find("/bism", 1, true), "the help line says /bism", help)
+    H.ok(not help:find("/memories", 1, true), "and not /memories", help)
+
+    -- NO USER-FACING TEXT STILL TELLS A PLAYER TO TYPE /memories. Code comments may keep the old
+    -- name (history); strings, the README, the album's README and the TOC may not. The one literal
+    -- allowed is the alias itself, "/memories" with nothing after it.
+    local function slurp(rel)
+        local fh = io.open(ROOT .. "/" .. rel, "rb")
+        if not fh then return nil end
+        local s = fh:read("*a")
+        fh:close()
+        return s
+    end
+    local function code(src)
+        src = src:gsub("%-%-%[(=*)%[.-%]%1%]", "")   -- block comments
+        src = src:gsub("%-%-[^\n]*", "")             -- line comments
+        return src
+    end
+    for _, rel in ipairs(FILES) do
+        if rel:match("^Core") then
+            local src = slurp(rel:gsub("\\", "/"))
+            H.ok(src ~= nil, rel .. " readable")
+            if src then
+                local stray = code(src):match("[^\n]*/memories[^\"\n][^\n]*")
+                H.ok(stray == nil, rel .. ": no string tells a player to type /memories", stray)
+            end
+        end
+    end
+    for _, rel in ipairs({ "README.md", "Album/README.txt", "Album/BiSMemories-Album.html", "BiSMemories.toc" }) do
+        local src = slurp(rel)
+        H.ok(src ~= nil, rel .. " readable")
+        if src then
+            H.ok(not src:find("/memories ", 1, true), rel .. ": no '/memories ...' left to type",
+                src:match("[^\n]*/memories [^\n]*"))
+        end
+    end
+end
 said = {}
 _G.SlashCmdList.BISMEMORIES("status")
 local blob = table.concat(said, " | ")

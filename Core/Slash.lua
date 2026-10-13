@@ -1,19 +1,19 @@
 --[[
-  BiSMemories :: Core/Slash.lua - /memories.
+  BiSMemories :: Core/Slash.lua - /bism (and /memories, the old name, kept as an alias).
 
-      /memories                 the last ten, newest first
-      /memories all             everything kept
-      /memories now [note]      take one right now, with an optional note
-      /memories on|off <thing>  levelup, boss, loot, achievement, death, duel
-      /memories loot <2-5>      the quality worth a picture: 4 is epic, 3 is rare.
+      /bism                     the last ten, newest first
+      /bism all                 everything kept
+      /bism now [note]          take one right now, with an optional note
+      /bism on|off <thing>      levelup, boss, loot, achievement, death, duel
+      /bism loot <2-5>          the quality worth a picture: 4 is epic, 3 is rare.
                                 YOUR loot only - plus anyone's legendary, whoever won it
-      /memories gems            gems on or off. Off: cutting one is "You create:" to the client,
+      /bism gems                gems on or off. Off: cutting one is "You create:" to the client,
                                 so a jewelcrafter photographed every gem they cut mid-raid
-      /memories gap <seconds>   the least time between two shots
-      /memories sound           the click on or off
-      /memories clear           forget the notes (never touches the pictures)
-      /memories status          what is on, and where the pictures live
-      /memories journal         the album in game: what happened, newest first. No pictures -
+      /bism gap <seconds>       the least time between two shots
+      /bism sound               the click on or off
+      /bism clear               forget the notes (never touches the pictures)
+      /bism status              what is on, and where the pictures live
+      /bism journal             the album in game: what happened, newest first. No pictures -
                                 an addon cannot list a folder, and cannot draw a .jpg. See
                                 Core/Journal.lua for why that is not a Forever thing.
 
@@ -50,7 +50,7 @@ local function list(n)
   for i = 1, math.min(n or 10, #log) do
     DEFAULT_CHAT_FRAME:AddMessage("   " .. line(log[i]))
   end
-  if n and #log > n then ns.Print("...and %d more - %s", #log - n, T.text("muted", "/memories all")) end
+  if n and #log > n then ns.Print("...and %d more - %s", #log - n, T.text("muted", "/bism all")) end
 end
 
 local function status()
@@ -166,7 +166,7 @@ function ns.Slash(input)
       db().gap = s
       ns.Print("at most one shot every %ds", s)
     else
-      ns.Print("seconds, please - %s", T.text("muted", "/memories gap 8"))
+      ns.Print("seconds, please - %s", T.text("muted", "/bism gap 8"))
     end
 
   elseif cmd == "sound" then
@@ -215,7 +215,7 @@ function ns.Slash(input)
     ns.Print("the album page: " .. ns.J.AlbumPath())
     if not ns.J.AlbumPathWhole() then
       ns.Print("that is inside your WoW version folder. Paste it whole with:")
-      ns.Print([[  /memories wow C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
+      ns.Print([[  /bism wow C:\Program Files (x86)\World of Warcraft\_classic_beta_]])
       ns.Print("(whatever yours is called - it is the folder with Interface and WTF in it)")
     end
     ns.J.Show()
@@ -227,11 +227,11 @@ function ns.Slash(input)
       ns.Print("WoW is at " .. set)
       ns.Print("the album page: " .. ns.J.AlbumPath())
     else
-      ns.Print("forgotten where WoW is - /memories wow <folder> to set it again")
+      ns.Print("forgotten where WoW is - /bism wow <folder> to set it again")
     end
 
   else
     ns.Print("%s", T.text("muted",
-      "/memories · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · zones · status · heard · journal"))
+      "/bism · all · now [note] · on|off <thing> · loot <2-5> · gap <secs> · sound · clear · zones · status · heard · journal"))
   end
 end
