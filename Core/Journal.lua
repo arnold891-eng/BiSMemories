@@ -1,7 +1,7 @@
 --[[
   BiSMemories :: Core/Journal.lua - the album, in game.
 
-      /memories journal         open it (also /memories album)
+      /bism journal             open it (also /bism album)
 
   WHAT THIS IS AND IS NOT. Arn asked for the album inside the addon, reading the Screenshots
   folder. The reading is not possible and never will be, on any client:
@@ -285,7 +285,7 @@ function J.Refresh()
   -- frame to use.
   f.pathLabel:SetText(T.text("muted", J.AlbumPathWhole()
     and "the album page - click it, then Ctrl+C"
-    or "the album page - inside your WoW folder. /memories wow <folder> for the whole path"))
+    or "the album page - inside your WoW folder. /bism wow <folder> for the whole path"))
 
   if n == 0 then
     f.foot:SetText(T.text("muted",
