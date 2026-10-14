@@ -1,6 +1,6 @@
 # BiSMemories
 
-## Unreleased
+## 0.6.0
 
 - **The command is `/bism` now**, like the rest of the BiS family (`/bish`, `/bist`, `/bisg`). `/memories` still works.
 
