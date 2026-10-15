@@ -1,5 +1,11 @@
 # BiSMemories
 
+## 0.7.0
+
+- **Your guild can see you on BiS Tools' map.** Every BiS addon now shares your spot with guildmates while you move - every 15 seconds in a small guild, slower as it grows, never from inside an instance. On by default; `/biscomm share off` (or `on`) switches it for every BiS addon at once.
+- The shared BiS channel no longer hooks the summon popup on Forever, where hooking Blizzard's code can break it until a restart.
+- An icon in the addon list: a spyglass.
+
 ## 0.6.0
 
 - **The command is `/bism` now**, like the rest of the BiS family (`/bish`, `/bist`, `/bisg`). `/memories` still works.
