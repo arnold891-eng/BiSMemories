@@ -139,7 +139,8 @@ M.log = nil            -- set from the DB on login; kept here so tests can read 
 local lastShot = 0
 
 --- Take one, and write down why. Returns the entry, or nil and the reason it did not.
-function M.Shoot(reason, detail)
+--- `from` is the asking addon's name, for a memory asked for through API.lua (else nil).
+function M.Shoot(reason, detail, from)
   local d = db()
   if d[reason] == false then return nil, "off" end
   local now = (GetTime and GetTime()) or 0
@@ -157,12 +158,15 @@ function M.Shoot(reason, detail)
     level = plain(UnitLevel and UnitLevel("player")) or 0,
     at = (time and time()) or 0,
     with = party(),
+    from = from,
   }
 
   local function capture()
     entry.file = shotStem()
     if Screenshot then pcall(Screenshot) end
     click()
+    -- other addons hear it here, at the shutter, so the file name is on the note they get (API.lua)
+    if ns.Announce then pcall(ns.Announce, "BiSMemories_Taken", entry) end
   end
   if C_Timer and C_Timer.After and (d.delay or 0) > 0 then
     C_Timer.After(d.delay, capture)

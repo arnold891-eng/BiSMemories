@@ -1,5 +1,10 @@
 # BiSMemories
 
+## 0.8.0
+
+- **BiSMemoriesAPI** - other BiS addons can read your album and ask for a memory to be taken (a screenshot and a note). Your switches still decide: a kind you've turned off stays off, and the gap between screenshots still applies.
+- The addon list shows **BiS>Memories**, like its category.
+
 ## 0.7.0
 
 - **Your guild can see you on BiS Tools' map.** Every BiS addon now shares your spot with guildmates while you move - every 15 seconds in a small guild, slower as it grows, never from inside an instance. On by default; `/biscomm share off` (or `on`) switches it for every BiS addon at once.
