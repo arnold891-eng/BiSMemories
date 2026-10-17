@@ -7,7 +7,7 @@ local FILES = H.TOC(ROOT, "BiSMemories.toc")
 
 -- every global this addon may create; anything else is a leak and a red test
 local ALLOWED = {
-    BiSMemoriesDB = true, SLASH_BISMEMORIES1 = true, SLASH_BISMEMORIES2 = true,
+    BiSMemoriesDB = true, BiSMemoriesAPI = true, SLASH_BISMEMORIES1 = true, SLASH_BISMEMORIES2 = true,
     HARNESS = true, print = true, BiSTheme = true, LibBiSComm = true, SLASH_BISCOMM1 = true,
 }
 local function Load()
@@ -48,6 +48,19 @@ H.section("load")
 local NS = Load()
 H.eq(#H.leaked, 0, "no accidental globals", table.concat(H.leaked, ", "))
 H.eq(NS.VERSION, TOC_VERSION, "version is the TOC's")
+
+-- THE API BEFORE LOGIN: the files are loaded, the saved notes are not. Every call answers, none throws.
+do
+  local A = _G.BiSMemoriesAPI
+  H.ok(type(A) == "table" and A.major == 1 and A.version == 1, "BiSMemoriesAPI is there, major 1, version 1")
+  for _, call in ipairs({
+    { "Ready", {} }, { "Memories", {} }, { "Latest", {} }, { "Kinds", {} }, { "TakeMemory", { "too early" } },
+  }) do
+    local ok, got, why = pcall(A[call[1]], unpack(call[2]))
+    H.ok(ok and got == nil and why == "not ready", call[1] .. " before login: nil, \"not ready\"", tostring(why))
+  end
+  H.eq(_G.BiSMemoriesDB, nil, "and asking did not make the saved table before the client loaded it")
+end
 fire("ADDON_LOADED", "BiSMemories")
 H.ok(type(_G.BiSMemoriesDB) == "table" and _G.BiSMemoriesDB.comm == true, "SavedVariables shaped with defaults on first load")
 
@@ -164,6 +177,115 @@ local blocked, why = M.Shoot("levelup", "again")
 H.ok(blocked == nil and why == "too soon", "a second shot inside the gap is refused", tostring(why))
 clock = clock + 100
 H.ok(M.Shoot("levelup", "later") ~= nil, "and allowed once the gap has passed")
+runTimers()
+
+H.section("BiSMemoriesAPI")
+do
+  local A = _G.BiSMemoriesAPI
+  H.eq(A.Ready(), true, "ready once the saved notes are in")
+
+  -- Kinds: every switch, as the player set it - and a copy
+  local kinds = A.Kinds()
+  H.eq(#kinds, #M.TRIGGERS, "Kinds lists every kind of memory")
+  H.ok(kinds[1].key == "levelup" and kinds[1].on == true, "with its key and its switch")
+  kinds[1].on = false; kinds[1].key = "edited"
+  local again = A.Kinds()
+  H.ok(again[1].key == "levelup" and again[1].on == true and _G.BiSMemoriesDB.levelup == true,
+       "editing the answer changes nothing")
+
+  -- TakeMemory: the refusals first
+  local got, why = A.TakeMemory(nil)
+  H.ok(got == nil and why == "no note", "no note, no memory", tostring(why))
+  got, why = A.TakeMemory("", "boss")
+  H.ok(got == nil and why == "no note", "an empty note is no note", tostring(why))
+  got, why = A.TakeMemory("a thing", "nope")
+  H.ok(got == nil and why == "no such kind", "an unknown kind is refused", tostring(why))
+  _G.BiSMemoriesDB.boss = false
+  got, why = A.TakeMemory("first kill", "boss", "BiSGuild")
+  H.ok(got == nil and why == "off", "the player's switch for that kind decides", tostring(why))
+  H.eq(A.Kinds()[2].on, false, "and Kinds says it is off")
+  _G.BiSMemoriesDB.boss = true
+
+  -- a secret note on this client is refused before anything reads it
+  local secretMeta = { __concat = function() error("secret", 0) end, __len = function() error("secret", 0) end }
+  local realSecret = _G.issecretvalue
+  _G.issecretvalue = function(v) return getmetatable(v) == secretMeta end
+  local ok
+  ok, got, why = pcall(A.TakeMemory, setmetatable({}, secretMeta))
+  H.ok(ok and got == nil and why == "no note", "a secret note is no note, not an error", tostring(why))
+  _G.issecretvalue = realSecret
+
+  -- callbacks: register, a bad one, and one that throws
+  H.ok(select(2, A.RegisterCallback(nil, "BiSMemories_Taken", print)) == "bad owner", "an owner is needed")
+  H.ok(select(2, A.RegisterCallback("x", "BiSMemories_Nope", print)) == "no such event", "only real events")
+  H.ok(select(2, A.RegisterCallback("x", "BiSMemories_Taken", 5)) == "not a function", "only functions")
+  local heard = {}
+  H.eq(A.RegisterCallback("BiSGuild", "BiSMemories_Taken", function(ev, mem)
+    heard[#heard + 1] = { ev = ev, mem = mem }
+    mem.detail = "edited by a listener"
+  end), true, "a listener registers")
+  H.eq(A.RegisterCallback("Broken", "BiSMemories_Taken", function() error("boom") end), true,
+       "so does a broken one")
+
+  -- the real thing: a picture and a note, under the player's gap
+  local shotsBefore = shots
+  clock = clock + 100
+  local mem = A.TakeMemory("guild first: Illidan", "boss", "BiSGuild")
+  H.ok(mem and mem.reason == "boss" and mem.detail == "guild first: Illidan" and mem.from == "BiSGuild",
+       "TakeMemory makes the memory, kind and asker on it")
+  H.eq(mem.zone, "Blackrock Depths - The Grim Guzzler", "with where, like any other")
+  H.eq(M.Log()[1].detail, "guild first: Illidan", "it is in the album")
+  H.eq(#heard, 0, "nobody hears before the shutter")
+  local ok2 = pcall(runTimers)
+  H.ok(ok2, "a listener that throws does not reach the player")
+  H.eq(shots, shotsBefore + 1, "the shutter fires once")
+  H.eq(#heard, 1, "and the listener hears it")
+  H.ok(heard[1] and heard[1].ev == "BiSMemories_Taken" and heard[1].mem.file
+       and heard[1].mem.file:find("^WoWScrnShot_"), "with the event name and the file stem")
+  H.eq(M.Log()[1].detail, "guild first: Illidan", "a listener editing its copy changes nothing")
+  mem.detail = "edited"
+  H.eq(M.Log()[1].detail, "guild first: Illidan", "nor does editing TakeMemory's answer")
+
+  got, why = A.TakeMemory("again at once")
+  H.ok(got == nil and why == "too soon", "the player's gap holds for other addons too", tostring(why))
+  clock = clock + 100
+  local manual = A.TakeMemory("no kind given")
+  H.ok(manual and manual.reason == "manual" and manual.from == nil, "no kind is manual, like /bism now")
+  runTimers()
+  H.eq(#heard, 2, "the listener hears every shutter")
+
+  -- Latest and Memories answer copies
+  local latest = A.Latest()
+  H.eq(latest.detail, "no kind given", "Latest is the newest")
+  latest.detail = "edited"; latest.with[1] = "Somebody"
+  latest = A.Latest()
+  H.ok(latest.detail == "no kind given" and latest.with[1] == nil, "editing Latest's answer changes nothing")
+  local all = A.Memories()
+  H.eq(#all, #M.Log(), "Memories is every memory")
+  H.eq(all[2].from, "BiSGuild", "newest first")
+  H.eq(#A.Memories(1), 1, "or the newest few")
+  all[1].detail = "edited"; table.remove(all, 1)
+  H.ok(A.Memories()[1].detail == "no kind given" and #A.Memories() == #M.Log(), "editing Memories' answer changes nothing")
+
+  -- unregistering
+  H.eq(A.UnregisterCallback("BiSGuild", "BiSMemories_Taken"), true, "a listener unregisters")
+  H.eq(select(2, A.UnregisterCallback("BiSGuild", "BiSMemories_Taken")), "not registered", "only once")
+  H.eq(A.UnregisterCallback("Broken", "BiSMemories_Taken"), true, "so does the broken one")
+  clock = clock + 100
+  A.TakeMemory("unheard")
+  runTimers()
+  H.eq(#heard, 2, "and hears nothing more")
+
+  -- an empty album: Latest has nothing to say, Memories is an empty list
+  local log, saved = M.Log(), {}
+  for i = 1, #log do saved[i] = log[i] end
+  for i = #log, 1, -1 do log[i] = nil end
+  got, why = A.Latest()
+  H.ok(got == nil and why == "no memories", "an empty album: nil, \"no memories\"", tostring(why))
+  H.eq(#A.Memories(), 0, "and Memories is {}")
+  for i = 1, #saved do log[i] = saved[i] end
+  clock = clock + 100
+end
 
 H.section("what is worth a photograph")
 _G.GetItemInfo = function(link)
