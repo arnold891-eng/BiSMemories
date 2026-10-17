@@ -1,5 +1,5 @@
 ## Interface: 16001, 20506
-## Title: |cffb980ffBiS|r Memories
+## Title: |cffb980ffBiS>|rMemories
 ## Category: |cffb980ffBiS>|rAddons
 ## IconTexture: Interface\Icons\INV_Misc_Spyglass_03
 ## Notes: Takes a screenshot when something worth remembering happens, and keeps a note of what it was.
